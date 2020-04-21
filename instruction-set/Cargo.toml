@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 quote = "1.0.3"
 syn = { verion = "1.0.17", features = ["full", "extra-traits"] }
+lazy_static = "1.4.0"
 proc-macro2 = "1.0"
 
 [lib]
