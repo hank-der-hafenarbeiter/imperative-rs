@@ -43,10 +43,213 @@ fn ensure_bin_str(discriminant:LitStr) -> Result<LitStr> {
     }
 }
 
-//enum ParseTree {
-//    Leaf { instr:Instruction, last_byte:u8 }
-//    InnerNode { byte:u8, depth:usize, children:
-//}
+enum ParseTreeNode<'a> {
+    Leaf { instr:&'a Instruction},
+    Inner { zero:Option<usize>, one:Option<usize> },
+}
+
+impl<'a> ParseTreeNode<'a> {
+
+    fn has_children(&self) -> bool {
+        match self {
+            ParseTreeNode::Inner{ zero, one } => {
+                zero.is_some() || one.is_some()
+            }
+            ParseTreeNode::Leaf { instr:_ } => false,
+        }
+    }
+
+    fn is_leaf(&self) -> bool {
+        match self {
+            ParseTreeNode::Inner{ zero:_, one:_ } => false,
+            ParseTreeNode::Leaf{ instr:_ } => true,
+        }
+    }
+}
+
+struct ParseTree<'a> {
+    nodes:Vec<ParseTreeNode<'a>>,
+}
+
+impl<'a> ParseTree<'a> {
+    
+    fn new() -> ParseTree<'a> {
+        ParseTree{ 
+            nodes:vec!(ParseTreeNode::Inner{zero:None, one:None}),
+        }
+    }
+
+    fn insert(&mut self, new_instr:&'a Instruction) -> std::result::Result<(), ()> {
+        let mut active_indices = vec!(0);
+        for cur_char in new_instr.discriminant().chars().skip(2) {
+            let mut temp_idx_buffer = vec!();
+            for cur_idx in active_indices {
+                let mut cur_len = self.nodes.len();
+                let mut new_nodes = vec!();
+                match &mut self.nodes[cur_idx] {
+                    ParseTreeNode::Inner{one, zero} => {
+                        if cur_char == '0' || cur_char == '*' {
+                            if let Some(zero) = zero { //if transition exist travers....
+                                temp_idx_buffer.push(zero.clone());
+                            } else { //... else create transition
+                                let new_node = ParseTreeNode::Inner{zero:None, one:None};
+                                *zero = Some(cur_len);
+                                temp_idx_buffer.push(cur_len);
+                                new_nodes.push(new_node);
+                                cur_len += 1;
+                            }
+                        }
+                        if cur_char == '1' || cur_char == '*' {
+                            if let Some(one) = one {
+                                temp_idx_buffer.push(one.clone());
+                            } else {
+                                let new_node = ParseTreeNode::Inner{zero:None, one:None};
+                                *one = Some(cur_len);
+                                temp_idx_buffer.push(cur_len);
+                                new_nodes.push(new_node);
+                            }
+                        }
+                    },
+                    ParseTreeNode::Leaf{ instr } => { //If we hit a leaf the instr in the leaf is either prefix of or equal to the new instruction
+                        let diag = instr.ident().span().unwrap().error("Instruction is indistinguishable from ...");
+                        diag.span_note(new_instr.ident().span().unwrap(), "...this instruction." ).emit();
+                        return Err(());
+                    },
+                }
+                for n in new_nodes {
+                    self.nodes.push(n);
+                }
+            }
+            active_indices = temp_idx_buffer;
+             
+        }
+        for cur_idx in &active_indices {
+            if self.nodes[*cur_idx].has_children() || self.nodes[*cur_idx].is_leaf() {
+                let mut diag = new_instr.ident().span().unwrap().error("Instruction is indistinguishable from ...");
+                for child_instr in self.get_all_child_instructions(&self.nodes[*cur_idx]) {
+                    diag = diag.span_note(child_instr.ident().span().unwrap(), "...this instruction." );
+                }
+                diag.emit();
+                return Err(());
+            }
+        }
+        for cur_idx in active_indices {
+            println!("about to insert leaf");
+            self.nodes[cur_idx] = ParseTreeNode::Leaf{ instr:new_instr };
+        }
+        return Ok(());
+    }
+
+    fn get_all_child_instructions(&self, node:&'a ParseTreeNode) -> Vec<&Instruction> {
+        let mut children = vec!();
+        let mut active_nodes = vec!(node);
+        while !active_nodes.is_empty() {
+            let cur_node = active_nodes.pop().unwrap();
+            match *cur_node {
+                ParseTreeNode::Leaf { instr } => children.push(instr),
+                ParseTreeNode::Inner{zero, one} => {
+                    if let Some(zero) = zero {
+                        active_nodes.push(&self.nodes[zero]);
+                    }
+                    if let Some(one) = one {
+                        active_nodes.push(&self.nodes[one]);
+                    }
+                }
+            }
+        }
+        children
+    }
+
+    fn iter_df(&self) -> DepthFirst<'_> {
+        DepthFirst{
+            tree:&self,
+            node_stack:vec!(&self.nodes[0]),
+        }
+    }
+
+    fn iter_bf(&self) -> BreadthFirst<'_> {
+        BreadthFirst{
+            tree:&self,
+            node_stack:vec!(&self.nodes[0]),
+        }
+    }
+}
+
+impl<'a> std::fmt::Debug for ParseTree<'a> {
+    fn fmt(&self, f:&mut std::fmt::Formatter) -> std::fmt::Result {
+        for level in self.iter_bf() {
+            for node in &level  {
+                match node {
+                    ParseTreeNode::Inner{ zero:_, one:_ } => write!(f, "|\t\t")?,
+                    ParseTreeNode::Leaf{ instr } => write!(f, "|{}", instr.ident().to_string())?,
+                }
+            }
+            writeln!(f, "")?;
+        }
+        Ok(())
+    }
+}
+
+struct BreadthFirst<'a> {
+    tree:&'a ParseTree<'a>,
+    node_stack:Vec<&'a ParseTreeNode<'a>>,
+}
+
+impl<'a> std::iter::Iterator for BreadthFirst<'a> {
+    type Item = Vec<&'a ParseTreeNode<'a>>;
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut new_stack:Vec<&'a ParseTreeNode<'a>> = vec!();
+        for node in &self.node_stack {
+            match node {
+                ParseTreeNode::Leaf{ instr:_} => continue,
+                ParseTreeNode::Inner{ zero, one } => {
+                    if let Some(zero) = zero {
+                        new_stack.push(&self.tree.nodes[*zero]);
+                    }
+                    if let Some(one) = one {
+                        new_stack.push(&self.tree.nodes[*one]);
+                    }
+                },
+            }
+        }
+        if self.node_stack.len() == 0 {
+            None
+        } else {
+            self.node_stack = new_stack;
+            Some(self.node_stack.clone())
+        }
+    }
+}
+
+
+struct DepthFirst<'a> {
+    tree:&'a ParseTree<'a>,
+    node_stack:Vec<&'a ParseTreeNode<'a>>,
+}
+
+impl<'a> std::iter::Iterator for DepthFirst<'a> {
+    type Item = &'a ParseTreeNode<'a>;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let cur_node = self.node_stack.pop()?;
+            match cur_node {
+                node @ ParseTreeNode::Leaf{ instr:_ } =>  {
+                    return Some(node);
+                }
+                ParseTreeNode::Inner{ ref zero, ref one } => {
+                    if let Some(zero) = zero {
+                        self.node_stack.push(&self.tree.nodes[*zero]);
+                    }
+                    if let Some(one) = one {
+                        self.node_stack.push(&self.tree.nodes[*one]);
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 struct CollisionGuard(Vec<(String, Span)>);
 
@@ -120,6 +323,13 @@ impl ToTokens for InstructionSet {
             self.instructions.to_tokens(tokens); 
         });
 
+        let mut pt = ParseTree::new();
+        for instr in &self.instructions {
+            pt.insert(instr).unwrap();
+        }
+
+        println!("{:?}", pt);
+
         let mut collision_guard = CollisionGuard::new();
         let if_blocks:Vec<TokenStream2> = self.instructions.iter().map(|instr| instr.if_block(&mut collision_guard)).collect();
         let ident = &self.ident;
@@ -145,6 +355,20 @@ impl Instruction {
         match self {
             Instruction::WithVars(instr) => instr.if_block(existing_codes),
             Instruction::Unit(instr)  => instr.if_block(existing_codes),
+        }
+    }
+
+    fn ident(&self) -> &Ident {
+        match self {
+            Instruction::WithVars(instr) => &instr.ident,
+            Instruction::Unit(instr) => &instr.ident,
+        }
+    }
+
+    fn discriminant(&self) -> String {
+        match self {
+            Instruction::WithVars(instr) => instr.discriminant.value(),
+            Instruction::Unit(instr) => instr.discriminant.value(),
         }
     }
 }

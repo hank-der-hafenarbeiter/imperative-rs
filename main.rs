@@ -5,7 +5,7 @@ use instruction_set::define_instructionset;
 define_instructionset!{
     #[derive(Debug)]
     pub enum Opcode {
-        Ld {z:usize, y:usize} = "0x7zyz0000",
+        Ld {z:usize, y:usize} = "0x9zyz0000",
         St {x:usize, y:usize, z:u32} = "0x8xyz2030",
         Mov {s:usize, t:usize} = "0x2sssttt",
         Addi {r:usize, i:u32 } = "0x3rrriii",
