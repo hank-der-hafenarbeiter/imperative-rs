@@ -1,29 +1,29 @@
-use instruction_set::define_instructionset; 
+use instruction_set::*; 
+use istrait::InstructionSet;
 
 
 
-define_instructionset!{
-    #[derive(Debug)]
-    pub enum Opcode {
-        Ld {z:usize, y:usize} = "0x7z_yz_00_00",
-        St {x:usize, y:usize, z:u32} = "0x8xyz2030",
-        Mov {s:usize, t:usize} = "0x2sssttt",
-        Addi {r:usize, i:u32 } = "0x3rrriii",
-        Subi {m:usize, j:u32 } = "0x9mmmjjj",
-        Sub {x:usize, y:usize} = "0b1010xxxxxxxxxxxxyyyyyyyyyyyy",
-    }
+#[derive(Debug, InstructionSet)]
+pub enum MyInstructions {
+    #[opcode = "0b000000x_00000000x"]
+    Foo{x:u16},
+    #[opcode = "0xff_xx_ff_ff_ff"]
+    Bar{x:u8},
+    #[opcode = "0xff_ff_ff_ff"]
+    Halt,
 }
 
 
 
+
+        
+
 fn main () {
-    println!("");
-    let code = 0x75140000;
-    let opcode = Opcode::decode(code).unwrap();
-    if let Opcode::Ld{z, y} = opcode {
-        assert_eq!(0x54, z);
-        assert_eq!(0x1, y);
-    }
-    println!("{:?}", opcode);
+    let opcode:&[u8] = &[0xff, 0xff, 0xff, 0xff];
+    let mut buf = [0,0,0,0,0,0,0,0];
+    let (n, instr) = MyInstructions::decode(&opcode).unwrap();
+    println!("{:?}", instr);
+    instr.encode(&mut buf);
+    println!("{:#?}", buf);
 }
 

@@ -15,8 +15,13 @@ name = "instruction-set-dev"
 version = "0.1.0"
 dependencies = [
  "instruction-set",
+ "istrait",
  "proc-macro2",
 ]
+
+[[package]]
+name = "istrait"
+version = "0.1.0"
 
 [[package]]
 name = "lazy_static"

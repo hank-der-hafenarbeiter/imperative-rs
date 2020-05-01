@@ -6,12 +6,11 @@ extern crate lazy_static;
 use crate::proc_macro::{TokenStream};
 use crate::proc_macro2::{Span, TokenStream as TokenStream2};
 use std::collections::HashMap;
-use quote::{ToTokens, quote, TokenStreamExt};
+use quote::{ToTokens, quote};
 use syn::*;
 use syn::Result as SynResult;
 use syn::punctuated::Punctuated;
 use syn::parse::{ParseStream, Parse};
-use syn::token::Brace;
 use syn::token;
 use syn::spanned::Spanned;
 
@@ -21,85 +20,82 @@ lazy_static!{
         , ('8', "1000"), ('9', "1001"), ('a', "1010"), ('b', "1011"), ('c', "1100"), ('d', "1101"), ('e', "1110"), ('f', "1111")).into_iter().collect();
 }
 
-fn ensure_bin_str(discriminant:LitStr) -> Result<LitStr> {
-    let mut src_str = discriminant.value();
-    src_str.retain(|c| c != '_');
-    let mut src_str_iter = src_str.chars(); 
-    let _ = src_str_iter.next().ok_or(Error::new(discriminant.span(), "Found empty string. Expected String as instruction code."))?;
-    let second = src_str_iter.next().ok_or(Error::new(discriminant.span(), "Found instruction code without prefix (0x or 0b)."))?;
-    if second == 'x' {
-        let mut binary_str = "0x".to_string(); 
-        for c in src_str_iter {
-            if let Some(s) = HEX_TO_BIN.get(&c) {
-                binary_str.push_str(s);
-            } else {
-                for _ in 0..4 { binary_str.push(c)}
-            }
+
+fn hex_to_bin_string(src_str:&str) -> String {
+    let mut res_str = String::with_capacity(4*src_str.len());
+    for c in src_str.chars().skip(2) {
+        if let Some(bin_str) = HEX_TO_BIN.get(&c) {
+            res_str.push_str(bin_str);
+        } else {
+            for _ in 0..4 { res_str.push(c); }
         }
-        Ok(LitStr::new(&binary_str, discriminant.span()))
-    } else if second == 'b' {
-        Ok(discriminant)
-    } else {
-        Err(Error::new(discriminant.span(), "Instruction codes have to be prefixed by either '0x' or '0b'."))
     }
+    res_str 
 }
 
-struct CollisionGuard(Vec<(String, Span)>);
+struct CollisionGuard<'a>(Vec<&'a Opcode>);
 
-impl CollisionGuard {
+impl<'a> CollisionGuard<'a> {
 
     fn new() -> Self {
         CollisionGuard(vec!())
     }
 
-    fn is_collision(s1:&str, s2: &str) -> bool {
-         for (c1, c2) in s1.chars().zip(s2.chars()) {
-             if c1 != '*' && c2 != '*' {
-                 if c1 != c2 {
-                     return false;
-                 } else {
-                     continue;
-                 }
-             } 
-         }
-         true
+    fn is_collision(op1:&Opcode, op2: &Opcode) -> bool {
+        for (c1, c2) in op1.collision_iter().zip(op2.collision_iter()){
+            if c1 != '*' && c2 != '*' {
+                if c1 != c2 {
+                    return false;
+                } else {
+                    continue;
+                }
+            }
+        }
+        true 
     }
 
 
-    fn collides_or_insert(&mut self, entry: (String, Span)) -> Option<(String, Span)> {
-        let (ref new_cg, _) = entry;
-        for entry in & self.0 {
-            if CollisionGuard::is_collision(new_cg, &entry.0) {
-                return Some(entry.clone()); 
+    fn collides_or_insert(&mut self, opcode:&'a Opcode) -> Option<&'a Opcode> {
+        for ex_opcode in & self.0 {
+            if CollisionGuard::is_collision(opcode, ex_opcode) {
+                return Some(ex_opcode); 
             }
         }
-        self.0.push(entry);
+        self.0.push(opcode);
         None
     }
 }
 
 struct InstructionSet {
-    attr:Vec<Attribute>,
-    vis:Visibility,
-    enum_token: Token!(enum),
     ident:Ident,
     generics:Generics,
-    brace_token:Brace,
     instructions:Punctuated<Instruction, Token!(,)>,
 }
 
 impl Parse for InstructionSet {
     
     fn parse(input: ParseStream) -> SynResult<Self> {
+        let _ =  input.call(Attribute::parse_outer)?;
+        let _ = Visibility::parse(input)?;
+        let _:Token!(enum) = input.parse()?;
+        let ident = Ident::parse(input)?;
+        let generics = Generics::parse(input)?;
         let content;
+        let _ = braced!(content in input);
+        let instructions = content.parse_terminated(Instruction::parse)?;
+        let mut cg = CollisionGuard::new();
+        for instr in &instructions {
+            if let Some(colliding_opcode) = cg.collides_or_insert(&instr.opcode()) {
+                let mut err = syn::Error::new(instr.opcode().span(), "Opcode collides with other opdcode");
+                let other = Error::new(colliding_opcode.span(), "Collides with this opcode");
+                err.combine(other);
+                return Err(err);
+            }
+        }
         Ok(InstructionSet{
-            attr:input.call(Attribute::parse_outer)?,
-            vis:input.parse()?,
-            enum_token:input.parse()?,
-            ident: input.parse()?,
-            generics:input.parse()?,
-            brace_token: braced!(content in input),
-            instructions: content.parse_terminated(Instruction::parse)?,
+            ident,
+            generics,
+            instructions,
         })
     }
 }
@@ -107,30 +103,207 @@ impl Parse for InstructionSet {
 impl ToTokens for InstructionSet {
     
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        tokens.append_all(&self.attr);
-        self.vis.to_tokens(tokens);
-        self.enum_token.to_tokens(tokens);
-        self.ident.to_tokens(tokens);
-        self.generics.to_tokens(tokens);
-        self.brace_token.surround(tokens, |tokens|{
-            self.instructions.to_tokens(tokens); 
-        });
-
-        let mut collision_guard = CollisionGuard::new();
-        let mut if_blocks= self.instructions.iter().map(|instr| instr.if_block(&mut collision_guard));
         let ident = &self.ident;
-        if let Some(first_if) = if_blocks.next() {
-            tokens.extend(quote!{
-                impl #ident {
-                    pub fn decode(mem:u64) -> Result<#ident, ()> {
-                        #first_if
-                        #(else #if_blocks)* 
-                        else {
-                            Err(())
-                        }
+        let generics = &self.generics;
+        
+
+        let (encode_blocks, decode_blocks):(Vec<TokenStream2>, Vec<TokenStream2>) = self.instructions.iter().map(|instr| instr.codec_blocks()).unzip();
+         
+        let mut decode_blocks = decode_blocks.iter();
+        let decode_fn = if let Some(first_if) = decode_blocks.next() {
+            quote!{
+                fn decode(mem:&[u8]) -> std::result::Result<(usize, #ident#generics), istrait::DecodeError> {
+                    #first_if
+                    #(else #decode_blocks)* 
+                    else {
+                        Err(istrait::DecodeError::UnknownOpcode)
                     }
                 }
+            }
+        } else {
+            quote!()
+        };
+        
+
+        let encode_fn = quote!{
+            fn encode(&self, buf:&mut [u8]) -> std::result::Result<usize, istrait::EncodeError>  {
+                match self {
+                    #(#encode_blocks)*
+                }
+            }
+        };
+        
+        tokens.extend(quote!{
+            impl InstructionSet for #ident#generics {
+                #encode_fn
+                #decode_fn
+            }
+        });
+    }
+}
+
+struct Opcode {
+    bytes:Vec<[char; 8]>,
+    span:Span,
+}
+
+impl Opcode {
+
+    fn num_bytes(&self) -> usize {
+        self.bytes.len()
+    }
+
+    fn get_position_map_of<'a>(&'a self, var_name:char) -> Box<dyn Iterator<Item=(usize, (usize, usize))> + 'a> {
+        Box::new(self.bytes.iter()
+            .enumerate()
+            .rev() //step through bytes in reverse order
+            .flat_map(move |(byte_idx, byte)| { //iterate over byte in reverse
+                byte.iter()
+                    .enumerate()
+                    .rev()
+                    .filter(move |(_, c)| **c == var_name) //filter positions that belong to this var
+                    .map(move |(bit_idx, _)| (byte_idx, bit_idx))}) //save bit and byte position
+            .enumerate() //count how many positions there are
+            .map(move |(idx, opcode_pos)| (idx, opcode_pos))) //fill up bits in target starting at least significant bit
+    }
+        
+
+    fn mask_strings<'a>(&'a self) -> Box<dyn Iterator<Item=String> + 'a> {
+        Box::new(self.bytes.iter().map(|byte|{
+            let mut mask = "".to_string();
+            for c in byte {
+                if *c == '0' || *c == '1' {
+                    mask.push('1');
+                } else {
+                    mask.push('0');
+                }
+            }
+            mask
+        }))
+    }
+
+    fn code_strings<'a>(&'a self) -> Box<dyn Iterator<Item=String> + 'a> {
+        Box::new(self.bytes.iter().map(|byte|{
+            let mut code = "".to_string();
+            for c in byte {
+                if *c == '0' || *c == '1' {
+                    code.push(*c);
+                } else {
+                    code.push('0');
+                }
+            }
+            code
+        }))
+        
+    }
+    
+    fn collision_iter<'a>(&'a self) -> Box<dyn Iterator<Item=char> + 'a> {
+        Box::new(self.bytes.iter()
+            .flatten()
+            .map(|&c| if c == '1' || c == '0' { c } else { '*'})
+        )
+    }
+
+    fn build_var_decoders(&self, variables:&HashMap<char, (&Ident, &Type)>) -> TokenStream2 {
+        let mut var_decoders = vec!();
+        for (c, (ident, ty)) in variables.iter() {
+            let mut masks = vec!();
+            let mut src_bytes = vec!();
+            let mut left_shifts = vec!();
+            let mut right_shifts = vec!();
+            let mut src_pos_iter = self.get_position_map_of(*c).peekable();
+            while let Some((tar_bit, (src_byte, src_bit))) = src_pos_iter.next() {
+                let mut mask = vec!('0', '0', '0', '0', '0', '0', '0', '0');
+                mask[src_bit] = '1';
+
+                let mut mask_str:String = "0b".to_string();
+                mask_str.extend(mask.iter());
+                masks.push(LitInt::new(&mask_str, self.span()));
+                src_bytes.push(src_byte);
+                right_shifts.push(7 - src_bit);
+                left_shifts.push(tar_bit);
+            }
+            var_decoders.push(quote!{
+                #ident: #((((mem[#src_bytes] & #masks) >> #right_shifts) as #ty) << #left_shifts)|*
+            })
+        }
+
+        quote!{
+            #(#var_decoders),*
+        }
+    }
+
+    fn build_encoder(&self, variables:&HashMap<char, (&Ident, &Type)>) -> TokenStream2 {
+        let code_bytes:Vec<LitInt> = self.code_strings().map(|s| LitInt::new(&format!("0b{}", s), self.span())).collect();
+        let num_bytes = self.bytes.len();
+        let code_indices = 0..num_bytes;
+        let mut tokens = quote!{
+                if buf.len() < #num_bytes {
+                    return Err(istrait::EncodeError::UnexpectedEOF);
+                }
+                #(buf[#code_indices] = #code_bytes);*;
+        };
+        
+        for (c, (ident, _)) in variables.iter() {
+            let mut positions_iter = self.get_position_map_of(*c).peekable();
+            while let Some((src_bit, (tar_byte, tar_bit))) = positions_iter.next() {
+                let mut mask = vec!('0', '0', '0', '0', '0', '0', '0', '0');
+                mask[tar_bit] = '1';
+                let shift = src_bit as isize - (7 - tar_bit as isize); 
+                let mask_str:String = format!("0b{}", mask.iter().collect::<String>());
+                let mask = LitInt::new(&mask_str, self.span());
+                tokens.extend(quote!{
+                buf[#tar_byte] |= ((#ident >> #shift) & #mask) as u8;
+                });
+            }
+        }
+        tokens.extend(quote!{return Ok(#num_bytes);});
+        tokens
+    }
+
+    fn build_match_conditions(&self) -> TokenStream2 {
+        let num_bytes = self.bytes.len();
+        let mut tokens = quote!{ mem.len() >= #num_bytes }; 
+        for (idx, (code_str, mask_str)) in self.code_strings().zip(self.mask_strings()).enumerate() {
+            let mask = LitInt::new(&format!("0b{}", mask_str), self.span);
+            let code = LitInt::new(&format!("0b{}", code_str), self.span);
+            tokens.extend(quote!{
+                && mem[#idx] & #mask == #code
             });
+        }
+        tokens
+    }
+    
+    fn span(&self) -> Span {
+        self.span 
+    }
+}
+
+impl Parse for Opcode {
+    fn parse(input: ParseStream) -> SynResult<Self> {
+        let _:Token![=] = input.parse()?;
+        let literal:LitStr = input.parse()?;
+        let mut literal_string:String = literal.value();
+        literal_string.retain(|c| c != '_');
+        let prefix:Vec<char> = literal_string.chars().take(2).collect();
+        if prefix.len() != 2 || prefix[0] != '0' || (prefix[1] != 'x' && prefix[1] != 'b') {
+            Err(Error::new(literal.span(), "Invalid opcode. Valid opcodes start with either '0x' or '0b' followed by at least one digit/variable"))
+        } else {
+            let code:Vec<char> = if prefix[1] == 'x' {
+                hex_to_bin_string(&literal_string).chars().collect()
+            } else {
+                literal_string.chars().skip(2).collect()
+            };
+            let mut bytes = vec!();
+            for (pos, c) in code.iter().enumerate() {
+                let bit_idx = pos % 8;
+                let byte_idx = (pos - bit_idx)/8;
+                if bytes.len() <= byte_idx {
+                    bytes.push(['0'; 8]);
+                }
+                bytes[byte_idx][bit_idx] = *c;
+            }
+            Ok(Opcode{ bytes, span:literal.span() })
         }
     }
 }
@@ -142,42 +315,43 @@ enum Instruction {
 
 impl Instruction {
     
-    fn if_block(&self, existing_codes:&mut CollisionGuard) -> TokenStream2 {
+    fn codec_blocks(&self) -> (TokenStream2, TokenStream2) {
         match self {
-            Instruction::WithVars(instr) => instr.if_block(existing_codes),
-            Instruction::Unit(instr)  => instr.if_block(existing_codes),
+            Instruction::WithVars(instr) => instr.codec_blocks(),
+            Instruction::Unit(instr)  => instr.codec_blocks(),
         }
     }
 
-    fn ident(&self) -> &Ident {
+    fn opcode(&self) -> &Opcode {
         match self {
-            Instruction::WithVars(instr) => &instr.ident,
-            Instruction::Unit(instr) => &instr.ident,
+            Instruction::WithVars(instr) => &instr.opcode,
+            Instruction::Unit(instr) => &instr.opcode,
         }
     }
 
-    fn discriminant(&self) -> String {
-        match self {
-            Instruction::WithVars(instr) => instr.discriminant.value(),
-            Instruction::Unit(instr) => instr.discriminant.value(),
+    fn get_opcode(ident:&Ident, attrs:Vec<Attribute>) -> SynResult<Opcode> {
+        for attribute in attrs  {
+            if attribute.path.is_ident("opcode") {
+                let tokens:TokenStream = attribute.tokens.into();
+                return syn::parse(tokens);
+            }
         }
+        Err(Error::new(ident.span(), format!("No opcode defined for Instruction {}. Define Opcodes by adding #[opcode = \"0x...\"] above the Instruction", ident.to_string())))
     }
 }
 
 impl Parse for Instruction {
     
     fn parse(input: ParseStream) -> SynResult<Self> {
-        let _:Vec<Attribute> =  input.call(Attribute::parse_outer)?;
+        let attr:Vec<Attribute> =  input.call(Attribute::parse_outer)?;
         let _:Visibility = input.parse()?;
         let ident:Ident = input.parse()?;
+        let opcode = Instruction::get_opcode(&ident, attr)?;
         if input.peek(token::Brace) {
             Ok(Instruction::WithVars(InstrWithVars{
                 ident,
                 fields:FieldsNamed::parse(input)?,
-                discriminant: {
-                    let _:Token![=] = input.parse()?;
-                    ensure_bin_str(input.parse()?)?
-                },
+                opcode
             }))
         } else if input.peek(token::Paren) {
             let fields:FieldsUnnamed = input.parse()?;
@@ -185,10 +359,7 @@ impl Parse for Instruction {
         } else {
             Ok(Instruction::Unit(UnitInstr{
                 ident,
-                discriminant:{
-                    let _:Token![=] = input.parse()?;
-                    ensure_bin_str(input.parse()?)?
-                }
+                opcode
             }))
         }
     }
@@ -206,22 +377,34 @@ impl ToTokens for Instruction {
 
 struct UnitInstr {
     ident:Ident,
-    discriminant:LitStr,
+    opcode:Opcode,
 }
 
 impl UnitInstr {
     
-    fn if_block(&self, existing_codes: &mut CollisionGuard) -> TokenStream2 {
-        let match_str = &self.discriminant.value();
-        if let Some(other) = existing_codes.collides_or_insert((match_str.clone(), self.ident.span())) {
-            let diag = self.ident.span().unwrap().error("Same instruction code has been used before.");
-            diag.span_note(other.1.unwrap(), "Previously used here.").emit();
-        }
-        let match_int = LitInt::new(&match_str, self.ident.span());
+    fn codec_blocks(&self) -> (TokenStream2, TokenStream2) {
         let self_ident = &self.ident;
-        quote!{
-            if mem == #match_int { Ok(Self::#self_ident) }
-        }
+        let num_bytes = self.opcode.num_bytes();
+        let conditions = self.opcode.build_match_conditions();
+
+        let decode_block = quote!{
+            if #conditions { Ok((#num_bytes, Self::#self_ident)) }
+        };
+
+        let code_strings:Vec<LitInt> = self.opcode.code_strings().map(|s| LitInt::new(&format!("0b{}", s), self.opcode.span())).collect();
+        let byte_indices = 0..code_strings.len();
+
+        let encode_block = quote!{
+            Self::#self_ident => {
+                if buf.len() < #num_bytes {
+                    return Err(istrait::EncodeError::UnexpectedEOF);
+                }
+                #(buf[#byte_indices] = #code_strings);*;
+                return Ok(#num_bytes);
+            }, 
+        };
+
+        (encode_block, decode_block)
     }
 }
 
@@ -234,7 +417,7 @@ impl ToTokens for UnitInstr {
 struct InstrWithVars {
     ident:Ident,
     fields:FieldsNamed,
-    discriminant:LitStr,
+    opcode:Opcode,
 }
 
 impl InstrWithVars {
@@ -261,60 +444,36 @@ impl InstrWithVars {
         variables
     }
     
-    fn if_block(&self, collision_guard:&mut CollisionGuard) -> TokenStream2 {
-        let discriminant_vec:Vec<char> = self.discriminant.value().chars().collect();
+    fn codec_blocks(&self) -> (TokenStream2, TokenStream2) {
         let variables = self.map_variables();
 
-        for c in discriminant_vec.iter().skip(2) {
-            if !variables.contains_key(c) && !(*c == '0' || *c == '1') {
-                self.discriminant.span().unwrap().error(format!("Code contains {} which is neither a variable name nor a valid digit.", c)).emit();
-                return quote!(if false {}); 
+        for c in self.opcode.bytes.iter().flat_map(|byte| byte.iter()) {
+            if !(variables.contains_key(c) || *c == '0' || *c == '1') {
+                self.opcode.span().unwrap().error(format!("Code contains {} which is neither a variable name nor a valid digit.", c)).emit();
+                return (quote!(if false {}), quote!{}); 
             }
         }
         
-
-        let mut empty_mask = vec!['0', 'b'];
-        while empty_mask.len() < discriminant_vec.len() { 
-            empty_mask.push('0')
-        }
-
-        let mut var_setters = vec!();
-
-        for (var_name, (ident, ty)) in &variables {
-            let mut quote = quote!{ 0 };
-            let mut pos_iter = discriminant_vec.iter().enumerate().skip(2).filter(|(_, c)| *c == var_name).map(|(i, _)| i).peekable();
-            
-            while let Some(pos) = pos_iter.next() { 
-                let mask_str:String = empty_mask.iter().enumerate().map(|(i, &c)| if i == pos { '1' } else { c }).collect();
-                let mask = LitInt::new(&mask_str, self.discriminant.span());
-                let shift = **pos_iter.peek().as_ref().unwrap_or(&&(discriminant_vec.len())) - pos - 1; 
-                quote = quote!{((#quote | mem & #mask) >> #shift)};
-            }
-            var_setters.push(quote!{#ident: #quote as #ty});
-        }
-
-        let prefix_len = 2; // prefix: '0b'
-        let discriminant = self.discriminant.value();
+        let num_bytes = self.opcode.num_bytes();
+        let var_decoders = self.opcode.build_var_decoders(&variables);
+        let match_conditions = self.opcode.build_match_conditions();
         let ident = &self.ident;
-        let mask_str = format!("0b{}", discriminant.chars().skip(prefix_len).map(|c| if variables.contains_key(&c) { '1' } else { '0' }).collect::<String>());
-        let mask = LitInt::new(&mask_str, self.discriminant.span());
-        let code_str =  format!("0b{}", discriminant.chars().skip(prefix_len).map(|c| if variables.contains_key(&c) { '1' } else { c }).collect::<String>());
-        let code = LitInt::new(&code_str, self.discriminant.span()); 
-
-
-        let collision_str = discriminant.chars().skip(prefix_len).map(|c| if variables.contains_key(&c) { '*' }  else { c }).collect();
-        if let Some(other) = collision_guard.collides_or_insert((collision_str, self.ident.span())) {
-            let diag = self.ident.span().unwrap().error("Same instruction code has been used before.");
-            diag.span_note(other.1.unwrap(), "Previously used here.").emit();
-        } 
-
-        quote!{
-            if mem | #mask == #code {
-                Ok(Self::#ident{
-                    #(#var_setters),*
-                })
+        let decode_block = quote!{
+            if #match_conditions {
+                Ok((#num_bytes, Self::#ident{
+                    #var_decoders
+                }))
             }
-        }
+        };
+
+        let encoder = self.opcode.build_encoder(&variables);
+        let var_idents:Vec<&Ident> = variables.iter().map(|(_, (ident, _))| *ident).collect();
+
+        let encoder_block = quote!{
+            Self::#ident{ #(#var_idents),* } => {#encoder},
+        };
+
+        (encoder_block, decode_block)
 
     }
 }
@@ -328,7 +487,7 @@ impl ToTokens for InstrWithVars {
     }
 }
 
-#[proc_macro]
+#[proc_macro_derive(InstructionSet, attributes(opcode))]
 pub fn define_instructionset(input: TokenStream) -> TokenStream {
     let instruction_set = parse_macro_input!(input as InstructionSet);
     let tokens = quote!{#instruction_set};
