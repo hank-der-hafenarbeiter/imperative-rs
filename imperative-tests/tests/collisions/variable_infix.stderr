@@ -1,0 +1,11 @@
+error: Opcode collides with other opdcode
+ --> $DIR/variable_infix.rs:6:17
+  |
+6 |     #[ opcode = "0xff_vv_ff" ]
+  |                 ^^^^^^^^^^^^
+
+error: Collides with this opcode
+ --> $DIR/variable_infix.rs:4:17
+  |
+4 |     #[ opcode = "0xff_ff_ff" ]
+  |                 ^^^^^^^^^^^^

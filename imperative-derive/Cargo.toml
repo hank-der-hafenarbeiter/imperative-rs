@@ -1,0 +1,16 @@
+[package]
+name = "imperative-derive"
+version = "0.1.0"
+authors = ["Kevin Kielholz <kevinkielholz@web.de>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+quote = "1.0.3"
+syn = { version = "1.0.17", features = ["full", "extra-traits"] }
+lazy_static = "1.4.0"
+proc-macro2 = "1.0.10"
+
+[lib]
+proc-macro = true

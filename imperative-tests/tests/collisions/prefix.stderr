@@ -1,0 +1,11 @@
+error: Opcode collides with other opdcode
+ --> $DIR/prefix.rs:7:16
+  |
+7 |     #[opcode = "0xffff"]
+  |                ^^^^^^^^
+
+error: Collides with this opcode
+ --> $DIR/prefix.rs:5:16
+  |
+5 |     #[opcode = "0xff"]
+  |                ^^^^^^
