@@ -1,0 +1,5 @@
+error: Opcode contains w which is neither a valid digit nor a variable name.
+ --> $DIR/missing_field.rs:5:16
+  |
+5 |     #[opcode = "0xfvwf"]
+  |                ^^^^^^^^

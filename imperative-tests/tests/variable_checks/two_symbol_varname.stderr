@@ -1,0 +1,5 @@
+error: Variable names must be one symbol long
+ --> $DIR/two_symbol_varname.rs:6:7
+  |
+6 |     A{gg:u8},
+  |       ^^^^^

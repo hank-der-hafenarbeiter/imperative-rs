@@ -1,0 +1,5 @@
+error: Variable names cannot be ascii hexdigits (0-f/F)
+ --> $DIR/hex_digit_var.rs:6:7
+  |
+6 |     A{f:u8},
+  |       ^^^^

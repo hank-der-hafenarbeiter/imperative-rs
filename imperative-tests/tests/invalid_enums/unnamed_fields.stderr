@@ -1,0 +1,5 @@
+error: Variants with unnamed fields not supported. Use Enum::Variant{X:usize, Y:u32} notation
+ --> $DIR/unnamed_fields.rs:5:6
+  |
+5 |     A(u8),
+  |      ^^^^
