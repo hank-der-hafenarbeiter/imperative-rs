@@ -17,4 +17,8 @@ fn compile_tests() {
     t.compile_fail("tests/variable_checks/missing_field.rs");
     t.compile_fail("tests/variable_checks/hex_digit_var.rs");
     t.compile_fail("tests/variable_checks/two_symbol_varname.rs");
+
+    t.compile_fail("tests/overflows/overflows.rs");
+    t.compile_fail("tests/invalid_enums/unnamed_fields.rs");
+    t.compile_fail("tests/invalid_enums/var_name_longer_one.rs");
 }

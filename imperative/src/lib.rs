@@ -4,6 +4,7 @@ pub use imperative_derive::*;
 pub enum DecodeError {
     UnknownOpcode,
     UnexpectedEOF,
+    Overflow()
 }
 
 #[derive(Debug, PartialEq, PartialOrd)]

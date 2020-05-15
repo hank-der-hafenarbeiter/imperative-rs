@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use proc_macro2::Span;
-use syn::{Ident, Visibility, Field, Attribute, LitInt, LitStr, Type, Error, FieldsNamed, FieldsUnnamed, Token};
+use syn::{Ident, Token, Visibility, Attribute, LitInt, LitStr, Type, Error, FieldsNamed, FieldsUnnamed, Token};
 use syn::token::{Brace, Paren};
 use syn::Result as SynResult;
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
-use quote::{quote, ToTokens};
+use quote::quote;
 
 
 
@@ -42,15 +42,12 @@ impl Parse for Instruction {
         let opcode = Opcode::from_attrs(&ident, attr)?;
         if input.peek(Brace) {
             let fields = input.parse()?;
-            opcode.check_vars(&fields)?;
-            Ok(Instruction::WithVars(InstrWithVars{
-                ident,
-                fields,
-                opcode
-            }))
+            let instr = InstrWithVars::new(ident, fields, opcode)?;
+            instr.check_variables()?;
+            Ok(Instruction::WithVars(instr))
         } else if input.peek(Paren) {
             let fields:FieldsUnnamed = input.parse()?;
-            Err(Error::new(fields.span(), "Variants with unnamed fields not supported. Enum::Variant{X:usize, Y:u32} notation"))
+            Err(Error::new(fields.span(), "Variants with unnamed fields not supported. Use Enum::Variant{X:usize, Y:u32} notation"))
         } else {
             Ok(Instruction::Unit(UnitInstr{
                 ident,
@@ -60,15 +57,6 @@ impl Parse for Instruction {
     }
 }
 
-impl ToTokens for Instruction {
-    
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        match self {
-            Instruction::WithVars(instr) => instr.to_tokens(tokens),
-            Instruction::Unit(instr) => instr.to_tokens(tokens),
-        }
-    }
-}
 
 pub(crate) struct UnitInstr {
     ident:Ident,
@@ -103,22 +91,55 @@ impl UnitInstr {
     }
 }
 
-impl ToTokens for UnitInstr {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        self.ident.to_tokens(tokens); 
-    }
-}
-
 pub(crate) struct InstrWithVars {
     ident:Ident,
-    fields:FieldsNamed,
     opcode:Opcode,
+    var_map:HashMap<char, (Ident, Type)>,
 }
 
 impl InstrWithVars {
-    fn map_variables(&self) -> HashMap<char, (&Ident, &Type)> {
+    fn new(ident:Ident, fields:FieldsNamed, opcode:Opcode) -> SynResult<Self> {
+        Ok(Self{
+            ident,
+            opcode,
+            var_map:Self::map_variables(fields)?,
+        })
+    }
+
+    fn check_variables(&self) -> SynResult<()> {
+        let mut variables:HashMap<&char, (&Ident, bool)> = self.var_map.iter()
+            .map(|(c, (i, _))| (c , (i, false)))
+            .collect();
+
+        for bit in self.opcode.bytes.iter().flatten() {
+            match variables.get_mut(bit) {
+                Some(entry) => entry.1 = true,
+                None => {
+                    if *bit != '0' && *bit != '1' {
+                        return Err(Error::new(self.opcode.span,
+                                              &format!("Opcode contains {} which is neither a valid digit nor a variable name.", bit)));
+                    }
+                }
+            }
+        }
+        for (key, entry) in &variables {
+            let var_ident_str = entry.0.to_string();
+            if var_ident_str.len() > 1 {
+                return Err(Error::new(entry.0.span(), "Variable names must be one symbol long"));
+            } else if var_ident_str.chars().next().unwrap().is_ascii_hexdigit() {
+                return Err(Error::new(entry.0.span(), "Variable names cannot be ascii hexdigits (0-f/F)"));
+            }
+            if entry.1 == false {
+                return Err(Error::new(entry.0.span(),
+                                      &format!("Variable {} declared but never used in opcode.", key)));
+            }
+        }
+        Ok(())
+    }
+
+    fn map_variables(fields:FieldsNamed) -> SynResult<HashMap<char, (Ident, Type)>> {
         let mut variables = HashMap::new();
-        for f in self.fields.named.iter() {
+        for f in fields.named.into_iter() {
             let ident = f.ident.as_ref().unwrap();
             let var_name = ident.to_string();
             if var_name.len() != 1 {
@@ -134,23 +155,23 @@ impl InstrWithVars {
                 ident.span().unwrap().error("Variables names can't be numeric").emit();
                 continue;
             }
-            variables.insert(var_name, (f.ident.as_ref().unwrap(), &f.ty));
+            let (ident, ty) = (f.ident, f.ty);
+            variables.insert(var_name, (ident.unwrap(), ty));
         }
-        variables
+        Ok(variables)
     }
     
     fn codec_blocks(&self) -> (TokenStream2, TokenStream2) {
-        let variables = self.map_variables();
 
         for c in self.opcode.bytes.iter().flat_map(|byte| byte.iter()) {
-            if !(variables.contains_key(c) || *c == '0' || *c == '1') {
+            if !(self.var_map.contains_key(c) || *c == '0' || *c == '1') {
                 self.opcode.span().unwrap().error(format!("Code contains {} which is neither a variable name nor a valid digit.", c)).emit();
                 return (quote!(if false {}), quote!{}); 
             }
         }
         
         let num_bytes = self.opcode.num_bytes();
-        let var_decoders = self.opcode.build_var_decoders(&variables);
+        let var_decoders = self.opcode.build_var_decoders(&self.var_map);
         let match_conditions = self.opcode.build_match_conditions();
         let ident = &self.ident;
         let decode_block = quote!{
@@ -160,8 +181,8 @@ impl InstrWithVars {
                 }))
             }
         };
-        let encoder = self.opcode.build_encoder(&variables);
-        let var_idents:Vec<&Ident> = variables.iter().map(|(_, (ident, _))| *ident).collect();
+        let encoder = self.opcode.build_encoder(&self.var_map);
+        let var_idents:Vec<&Ident> = self.var_map.iter().map(|(_, (ident, _))| ident).collect();
 
         let encoder_block = quote!{
             Self::#ident{ #(#var_idents),* } => {#encoder},
@@ -172,14 +193,6 @@ impl InstrWithVars {
     }
 }
 
-
-impl ToTokens for InstrWithVars {
-
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        self.ident.to_tokens(tokens); 
-        self.fields.to_tokens(tokens);
-    }
-}
 
 lazy_static!{
     static ref HEX_TO_BIN:HashMap<char, &'static str> = vec!(('0', "0000"), ('1', "0001"), ('2', "0010"), ('3', "0011"), ('4', "0100"), ('5', "0101"), ('6', "0110"), ('7', "0111")
@@ -205,37 +218,6 @@ pub(crate) struct Opcode {
 }
 
 impl Opcode {
-
-    fn check_vars(&self, fields:&FieldsNamed) -> SynResult<()> {
-        let mut variables:HashMap<char, (&Field, bool)> = fields.named.iter()
-            .map(|f| (f.ident.as_ref().unwrap().to_string().chars().next().unwrap(), (f, false)))
-            .collect();
-
-        for bit in self.bytes.iter().flatten() {
-            match variables.get_mut(bit) {
-                Some(entry) => entry.1 = true,
-                None => {
-                    if *bit != '0' && *bit != '1' {
-                        return Err(Error::new(self.span, 
-                            &format!("Opcode contains {} which is neither a valid digit nor a variable name.", bit)));
-                    } 
-                }
-            }
-        }
-        for (key, entry) in &variables {
-            let var_ident_str = entry.0.ident.as_ref().unwrap().to_string();
-            if var_ident_str.len() > 1 {
-                return Err(Error::new(entry.0.span(), "Variable names must be one symbol long"));
-            } else if var_ident_str.chars().next().unwrap().is_ascii_hexdigit() {
-                return Err(Error::new(entry.0.span(), "Variable names cannot be ascii hexdigits (0-f/F)"));
-            }
-            if entry.1 == false {
-                return Err(Error::new(entry.0.span(), 
-                    &format!("Variable {} declared but never used in opcode.", key)));
-            }
-        }
-        Ok(())
-    }
 
     fn from_attrs(ident:&Ident, attrs:Vec<Attribute>) -> SynResult<Opcode> {
         for attribute in attrs  {
@@ -302,7 +284,7 @@ impl Opcode {
         )
     }
 
-    fn build_var_decoders(&self, variables:&HashMap<char, (&Ident, &Type)>) -> TokenStream2 {
+    fn build_var_decoders(&self, variables:&HashMap<char, (Ident, Type)>) -> TokenStream2 {
         let mut var_decoders = vec!();
         for (c, (ident, ty)) in variables.iter() {
             let mut masks = vec!();
@@ -331,7 +313,7 @@ impl Opcode {
         }
     }
 
-    fn build_encoder(&self, variables:&HashMap<char, (&Ident, &Type)>) -> TokenStream2 {
+    fn build_encoder(&self, variables:&HashMap<char, (Ident, Type)>) -> TokenStream2 {
         let code_bytes:Vec<LitInt> = self.code_strings().map(|s| LitInt::new(&format!("0b{}", s), self.span())).collect();
         let num_bytes = self.bytes.len();
         let code_indices = 0..num_bytes;
