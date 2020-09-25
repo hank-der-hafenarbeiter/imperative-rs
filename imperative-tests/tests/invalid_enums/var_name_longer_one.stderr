@@ -1,11 +1,11 @@
 error: Variables names must be one symbol long
- --> $DIR/two_symbol_varname.rs:6:7
+ --> $DIR/var_name_longer_one.rs:5:7
   |
-6 |     A{gg:u8},
+5 |     A{vw:u8},
   |       ^^
 
 error: Instruction contains invalid variable names. See above.
- --> $DIR/two_symbol_varname.rs:6:7
+ --> $DIR/var_name_longer_one.rs:5:7
   |
-6 |     A{gg:u8},
+5 |     A{vw:u8},
   |       ^^

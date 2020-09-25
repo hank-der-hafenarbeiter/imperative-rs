@@ -6,7 +6,7 @@ use imperative::*;
 enum Instructions {
     #[opcode = "0xav_ww_xx_yy_zz"]
     A{v:u8, w:u8, x:u8, y:u8, z:u8},
-    #[opcode = "0xbv_xx_xx_yy_yy"]
+    #[opcode = "0xbvw_xx_xx_yy_yy"]
     B{v:u8, w:u8, x:u16, y:u16},
     #[opcode = "0xcv_xx_xx_xx_xx"]
     C{v:u8, x:u32},
@@ -29,28 +29,28 @@ fuzz_target!(|vars: Vars| {
         let instr = Instructions::A{v:vars.eight, w:vars.eight, x:vars.eight, y:vars.eight, z:vars.eight};
         let mut bytes_used = 5;
         let encode_result = instr.encode(&mut buf);
-        assert_eq!(Ok(bytes_used), encode_result, "Incorrect encoding result.")
+        assert_eq!(Ok(bytes_used), encode_result, "Incorrect encoding result.");
         assert_eq!(Ok(instr), Instructions::decode(&buf), "Re-decoded instr doesn't match original.");
     }   {
         let mut buf = [0u8; 9];
-        let instr = Instructions:B{v:vars.eight, w:vars.eight, x:vars.sixteen, y:vars.sixteen};
+        let instr = Instructions::B{v:vars.eight, w:vars.eight, x:vars.sixteen, y:vars.sixteen};
         let mut bytes_used = 5;
         let encode_result = instr.encode(&mut buf);
-        assert_eq!(Ok(bytes_used), encode_result, "Incorrect encoding result.")
+        assert_eq!(Ok(bytes_used), encode_result, "Incorrect encoding result.");
         assert_eq!(Ok(instr), Instructions::decode(&buf), "Re-decoded instr doesn't match original.");
     }   {
         let mut buf = [0u8; 9];
         let instr = Instructions::C{v:vars.eight, x:vars.thirtytwo};
         let mut bytes_used = 5;
         let encode_result = instr.encode(&mut buf);
-        assert_eq!(Ok(bytes_used), encode_result, "Incorrect encoding result.")
+        assert_eq!(Ok(bytes_used), encode_result, "Incorrect encoding result.");
         assert_eq!(Ok(instr), Instructions::decode(&buf), "Re-decoded instr doesn't match original.");
     }   {
         let mut buf = [0u8; 9];
         let instr = Instructions::D{v:vars.eight, x:vars.sixtytwo};
         let mut bytes_used = 9;
         let encode_result = instr.encode(&mut buf);
-        assert_eq!(Ok(bytes_used), encode_result, "Incorrect encoding result.")
+        assert_eq!(Ok(bytes_used), encode_result, "Incorrect encoding result.");
         assert_eq!(Ok(instr), Instructions::decode(&buf), "Re-decoded instr doesn't match original.");
     }
 

@@ -14,8 +14,8 @@ libfuzzer-sys = "0.3"
 imperative = {path = "../imperative"}
 
 # Prevent this from interfering with workspaces
-[workspace]
-members = [""]
+#[workspace]
+#members = [""]
 
 [[bin]]
 name = "fuzz_decoder"

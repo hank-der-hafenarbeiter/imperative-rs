@@ -1,5 +1,11 @@
-error: Variable names cannot be ascii hexdigits (0-f/F)
+error: Variables names can't be lower case hexdigits
  --> $DIR/hex_digit_var.rs:6:7
   |
 6 |     A{f:u8},
-  |       ^^^^
+  |       ^
+
+error: Instruction contains invalid variable names. See above.
+ --> $DIR/hex_digit_var.rs:6:7
+  |
+6 |     A{f:u8},
+  |       ^

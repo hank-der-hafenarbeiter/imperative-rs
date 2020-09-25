@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use proc_macro2::Span;
-use syn::{Ident, Token, Visibility, Attribute, LitInt, LitStr, Type, Error, FieldsNamed, FieldsUnnamed, Token};
+use syn::{Ident, Token, Visibility, Attribute, LitInt, LitStr, Type, Error, FieldsNamed, FieldsUnnamed};
 use syn::token::{Brace, Paren};
 use syn::Result as SynResult;
 use syn::parse::{Parse, ParseStream};
@@ -43,7 +43,6 @@ impl Parse for Instruction {
         if input.peek(Brace) {
             let fields = input.parse()?;
             let instr = InstrWithVars::new(ident, fields, opcode)?;
-            instr.check_variables()?;
             Ok(Instruction::WithVars(instr))
         } else if input.peek(Paren) {
             let fields:FieldsUnnamed = input.parse()?;
@@ -99,14 +98,16 @@ pub(crate) struct InstrWithVars {
 
 impl InstrWithVars {
     fn new(ident:Ident, fields:FieldsNamed, opcode:Opcode) -> SynResult<Self> {
-        Ok(Self{
+        let instr = Self{
             ident,
             opcode,
             var_map:Self::map_variables(fields)?,
-        })
+        };
+        instr.check_opcode()?;
+        Ok(instr)
     }
 
-    fn check_variables(&self) -> SynResult<()> {
+    fn check_opcode(&self) -> SynResult<()> {
         let mut variables:HashMap<&char, (&Ident, bool)> = self.var_map.iter()
             .map(|(c, (i, _))| (c , (i, false)))
             .collect();
@@ -122,43 +123,64 @@ impl InstrWithVars {
                 }
             }
         }
-        for (key, entry) in &variables {
-            let var_ident_str = entry.0.to_string();
-            if var_ident_str.len() > 1 {
-                return Err(Error::new(entry.0.span(), "Variable names must be one symbol long"));
-            } else if var_ident_str.chars().next().unwrap().is_ascii_hexdigit() {
-                return Err(Error::new(entry.0.span(), "Variable names cannot be ascii hexdigits (0-f/F)"));
-            }
-            if entry.1 == false {
-                return Err(Error::new(entry.0.span(),
-                                      &format!("Variable {} declared but never used in opcode.", key)));
+        let mut missing_var_span:Option<Span> = None;
+        for (c, ident) in variables.iter().filter(|(_, (_, visited))| !*visited).map(|(c, (ident, _visited))| (c, ident)) {
+            ident.span().unwrap().error(&format!("Variable {} declared but never used in opcode.", c)).emit();  
+            if let Some(span) = missing_var_span {
+                missing_var_span = span.join(ident.span());
+            } else {
+                missing_var_span = Some(ident.span())
             }
         }
-        Ok(())
+        if let Some(span) = missing_var_span {
+            Err(Error::new(span, "Opcode is missing variables which were declared in Enum variants"))
+        } else {
+            Ok(())
+        }
     }
 
     fn map_variables(fields:FieldsNamed) -> SynResult<HashMap<char, (Ident, Type)>> {
+        let mut erroneous_spans:Option<Span> = None;
         let mut variables = HashMap::new();
         for f in fields.named.into_iter() {
             let ident = f.ident.as_ref().unwrap();
             let var_name = ident.to_string();
             if var_name.len() != 1 {
-                ident.span().unwrap().error("Variables names have to be 1 symbol long").emit();
+                ident.span().unwrap().error("Variables names must be one symbol long").emit();
+                if let Some(span) = erroneous_spans{
+                    erroneous_spans = span.join(ident.span()); 
+                } else {
+                    erroneous_spans = Some(ident.span());
+                }
                 continue;
             }
             let var_name = var_name.chars().next().unwrap();
             if var_name.is_lowercase() && var_name.is_ascii_hexdigit() {
                 ident.span().unwrap().error("Variables names can't be lower case hexdigits").emit();
+                if let Some(span) = erroneous_spans{
+                    erroneous_spans = span.join(ident.span()); 
+                } else {
+                    erroneous_spans = Some(ident.span());
+                }
                 continue;
             }
             if var_name.is_numeric() {
                 ident.span().unwrap().error("Variables names can't be numeric").emit();
+                if let Some(span) = erroneous_spans{
+                    erroneous_spans = span.join(ident.span()); 
+                } else {
+                    erroneous_spans = Some(ident.span());
+                }
                 continue;
             }
             let (ident, ty) = (f.ident, f.ty);
             variables.insert(var_name, (ident.unwrap(), ty));
         }
-        Ok(variables)
+        if let Some(span) = erroneous_spans {
+            Err(Error::new(span, "Instruction contains invalid variable names. See above."))
+        } else {
+            Ok(variables)
+        }
     }
     
     fn codec_blocks(&self) -> (TokenStream2, TokenStream2) {
