@@ -10,10 +10,27 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  ubuntu_build:
+    name: Ubuntu build & test
     runs-on: ubuntu-latest
-
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --verbose --manifest-path=./imperative-derive/Cargo.toml
+    - name: Run tests
+      run: cargo test --verbose --manifest-path=./imperative-tests/Cargo.toml
+  windows_build:
+    name: Windows build & test
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --verbose --manifest-path=./imperative-derive/Cargo.toml
+    - name: Run tests
+      run: cargo test --verbose --manifest-path=./imperative-tests/Cargo.toml
+  mac_build:
+    name: Mac build & test
+    runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
     - name: Build
