@@ -14,7 +14,7 @@
 .hgignore
 .idea
 *.iml
-.swp
+*.swp
 __pycache__/
 *.py[cod]
 *$py.class

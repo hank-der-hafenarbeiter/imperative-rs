@@ -3,9 +3,3 @@ error: Variable w declared but never used in opcode.
   |
 6 |     Instr{w:u8},
   |           ^
-
-error: Opcode is missing variables which were declared in Enum variants
- --> $DIR/missing_in_opcode.rs:6:11
-  |
-6 |     Instr{w:u8},
-  |           ^

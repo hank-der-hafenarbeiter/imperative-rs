@@ -1,10 +1,4 @@
-error: Variables names can't be lower case hexdigits
- --> $DIR/hex_digit_var.rs:6:7
-  |
-6 |     A{f:u8},
-  |       ^
-
-error: Instruction contains invalid variable names. See above.
+error: Variable names can't be lower case hexdigits
  --> $DIR/hex_digit_var.rs:6:7
   |
 6 |     A{f:u8},
