@@ -4,9 +4,10 @@ version = "0.1.0"
 authors = ["Kevin Kielholz <kevinkielholz@rwth-aachen.de>"]
 edition = "2018"
 repository = "https://github.com/hank-der-hafenarbeiter/imperative-rs"
-keywords = ["instructionsets", "emulation", "instruction encoding"]
+keywords = ["instructionsets", "encoding", "decoding", "instruction", "emulator"]
 categories = ["emulators", "encoding", "simulation"]
 license = "MIT OR Apache-2.0"
+description = "Auto derivable trait to easily define instruction sets"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
