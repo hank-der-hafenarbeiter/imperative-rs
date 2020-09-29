@@ -8,6 +8,7 @@ keywords = ["instructionsets", "encoding", "decoding", "instruction", "emulator"
 categories = ["emulators", "encoding", "simulation"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
+description = "Procedural macro that auto derives the `InstructionSet` trait defined by the `imperative` crate."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
