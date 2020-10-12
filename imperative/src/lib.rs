@@ -31,7 +31,7 @@
 //!
 //!```
 #[doc(hidden)]
-pub use imperative_derive::*;
+pub use imperative_rs_derive::*;
 /// This type is returned by `fn InstructionSet::decode(...)` in case no instruction could be
 /// decoded.
 #[derive(Debug, PartialEq, PartialOrd)]
