@@ -3,7 +3,7 @@
 //! `InstructionSet` provides `fn InstructionSet::decode(...) -> {...}` to decode instructions from a `&[u8]`
 //! and `fn InstructionSet::encode(...) -> {...}` to encode and write an instruction into a `&[u8]`.
 //!```
-//!use imperative::InstructionSet;
+//!use imperative_rs::InstructionSet;
 //!
 //!#[derive(InstructionSet)]
 //!enum Is {
@@ -45,7 +45,7 @@ pub enum DecodeError {
     /// An example would be if the opcode contains a 9 bit variable that is put into a `u8` during
     /// decoding.
     /// ```
-    /// use imperative::{InstructionSet, DecodeError};
+    /// use imperative_rs::{InstructionSet, DecodeError};
     /// #[derive(InstructionSet)]
     /// enum Is {
     ///     #[opcode = "0b0000000v_vvvvvvvv"]

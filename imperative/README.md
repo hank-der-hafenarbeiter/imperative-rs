@@ -1,9 +1,9 @@
-#imperative
+# imperative-rs
 
 This crate provides a `trait`-definition, error types and a procedural macro to automatically derive
 instruction sets from `enum`.
 
-The `imperative::InstructionSet`-trait consists of two functions. 
+The `imperative_rs::InstructionSet`-trait consists of two functions. 
 `fn InstructionSet::encode(&self, buf:&mut [u8]) -> Result<usize, EncodeError>` encodes instructions
  (i.e. `enum`-variants) into opcodes (i.e. `&[u8]`) returning the number of bytes writte.
 `fn decode(mem:&[u8]) -> Result<(usize, Self), DecodeError>` decodes an instruction from a `&[u8]` and
@@ -14,9 +14,9 @@ binary or hex strings, can contain underscores for readability and variable name
 encode the position of encoded variables, but it also means that variable names can only be one symbol long (for now)
 and cannot contain hex digits. 
 
-##Example
+## Example
 ```
-use imperative::InstructionSet;
+use imperative_rs::InstructionSet;
 
 #[derive(InstructionSet)]
 enum Is {
