@@ -1,6 +1,6 @@
 [package]
 name = "imperative-rs-derive"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Kevin Kielholz <kevinkielholz@rwth-aachen.de>"]
 edition = "2018"
 repository = "https://github.com/hank-der-hafenarbeiter/imperative-rs"
