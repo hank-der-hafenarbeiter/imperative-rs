@@ -52,7 +52,7 @@ impl ToTokens for InstructionSet {
         let mut decode_blocks = decode_blocks.iter();
         let decode_fn = if let Some(first_if) = decode_blocks.next() {
             quote!{
-                fn decode(mem:&[u8]) -> std::result::Result<(usize, #ident#generics), imperative::DecodeError> {
+                fn decode(mem:&[u8]) -> std::result::Result<(usize, #ident#generics), imperative_rs::DecodeError> {
                     #first_if
                     #(else #decode_blocks)* 
                     else {
