@@ -1,5 +1,5 @@
 [package]
-name = "imperative-derive"
+name = "imperative-rs-derive"
 version = "0.1.0"
 authors = ["Kevin Kielholz <kevinkielholz@rwth-aachen.de>"]
 edition = "2018"

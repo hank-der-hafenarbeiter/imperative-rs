@@ -19,14 +19,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
-name = "imperative"
-version = "0.1.0"
+name = "imperative-fuzz"
+version = "0.0.0"
 dependencies = [
- "imperative-derive",
+ "imperative-rs",
+ "libfuzzer-sys",
 ]
 
 [[package]]
-name = "imperative-derive"
+name = "imperative-rs"
+version = "0.1.0"
+dependencies = [
+ "imperative-rs-derive",
+]
+
+[[package]]
+name = "imperative-rs-derive"
 version = "0.1.0"
 dependencies = [
  "lazy_static",
@@ -36,18 +44,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "imperative-fuzz"
-version = "0.0.0"
-dependencies = [
- "imperative",
- "libfuzzer-sys",
-]
-
-[[package]]
 name = "imperative-tests"
 version = "0.1.0"
 dependencies = [
- "imperative",
+ "imperative-rs",
  "trybuild",
 ]
 
