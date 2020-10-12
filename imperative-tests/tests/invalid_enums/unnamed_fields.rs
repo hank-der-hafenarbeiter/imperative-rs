@@ -1,4 +1,4 @@
-use imperative::InstructionSet;
+use imperative_rs::InstructionSet;
 #[derive(InstructionSet)]
 enum Instructionset {
     #[ opcode = "0xff_vv_ff" ]

@@ -1,4 +1,4 @@
-use imperative::{EncodeError, InstructionSet};
+use imperative_rs::{EncodeError, InstructionSet};
 
 #[derive(InstructionSet)]
 enum Unit {

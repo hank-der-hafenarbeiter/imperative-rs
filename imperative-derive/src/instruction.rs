@@ -79,7 +79,7 @@ impl UnitInstr {
         let encode_block = quote!{
             Self::#self_ident => {
                 if buf.len() < #num_bytes {
-                    return Err(imperative::EncodeError::UnexpectedEOF);
+                    return Err(imperative_rs::EncodeError::UnexpectedEOF);
                 }
                 #(buf[#byte_indices] = #code_strings);*;
                 return Ok(#num_bytes);
@@ -337,7 +337,7 @@ impl Opcode {
         let code_indices = 0..num_bytes;
         let mut tokens = quote!{
                 if buf.len() < #num_bytes {
-                    return Err(imperative::EncodeError::UnexpectedEOF);
+                    return Err(imperative_rs::EncodeError::UnexpectedEOF);
                 }
                 #(buf[#code_indices] = #code_bytes);*;
         };

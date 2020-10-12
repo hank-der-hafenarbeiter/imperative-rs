@@ -56,7 +56,7 @@ impl ToTokens for InstructionSet {
                     #first_if
                     #(else #decode_blocks)* 
                     else {
-                        Err(imperative::DecodeError::UnknownOpcode)
+                        Err(imperative_rs::DecodeError::UnknownOpcode)
                     }
                 }
             }
@@ -66,7 +66,7 @@ impl ToTokens for InstructionSet {
         
 
         let encode_fn = quote!{
-            fn encode(&self, buf:&mut [u8]) -> std::result::Result<usize, imperative::EncodeError>  {
+            fn encode(&self, buf:&mut [u8]) -> std::result::Result<usize, imperative_rs::EncodeError>  {
                 match self {
                     #(#encode_blocks)*
                 }

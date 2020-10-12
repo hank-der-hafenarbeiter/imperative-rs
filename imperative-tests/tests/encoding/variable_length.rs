@@ -1,4 +1,4 @@
-use imperative::InstructionSet;
+use imperative_rs::InstructionSet;
 
 #[derive(InstructionSet, Debug, PartialEq, PartialOrd)]
 enum Unit {
