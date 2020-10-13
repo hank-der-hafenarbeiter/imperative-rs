@@ -28,16 +28,14 @@ dependencies = [
 
 [[package]]
 name = "imperative-rs"
-version = "0.1.0"
+version = "0.1.3"
 dependencies = [
- "imperative-rs-derive 0.1.0",
+ "imperative-rs-derive 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "imperative-rs-derive"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42798d2f79fa750c1559ec99882b73cebae1da460fabe14a1a8d96e9918c21cf"
+version = "0.1.3"
 dependencies = [
  "lazy_static",
  "proc-macro2",
@@ -47,7 +45,9 @@ dependencies = [
 
 [[package]]
 name = "imperative-rs-derive"
-version = "0.1.1"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a5bce40293e9c7790efdb7347229c8af48a7312a5763c5a2777eac810c525e4"
 dependencies = [
  "lazy_static",
  "proc-macro2",
@@ -57,7 +57,7 @@ dependencies = [
 
 [[package]]
 name = "imperative-tests"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "imperative-rs",
  "trybuild",
