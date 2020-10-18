@@ -1,4 +1,9 @@
-#imperative
+# Imperative [![Latest Version]][crates.io] [![Documentation]][docs.rs]
+
+[Documentation]: https://img.shields.io/badge/docs.rs-rustdoc-green
+[Latest Version]: https://img.shields.io/crates/v/imperative_rs.svg
+[docs.rs]: https://docs.rs/imperative-rs/
+[crates.io]: https://crates.io/crates/imperative-rs
 
 `imperative` tries to make it easier to define instruction sets. Using `imperative` 
 instruction sets are defined by an `enum` and the `InstructionSet` trait, which can
@@ -14,8 +19,9 @@ the desired behaviour in the match arms.
 This project is still in it's infancy so if you plan to build a reliable emulator, you
 are probably better of writing the codec for your instruction set by hand. 
 
-##Example
-```
+## Example
+
+```rust
 use imperative::InstructionSet;
 
 #[derive(InstructionSet)]
@@ -41,5 +47,4 @@ fn main() {
     assert_eq!(4, instruction.encode(&mut mem[100..]);
     assert_eq!([0x2a, 0xbc, 0xde, 0xf0], mem[100..104])
 }
-
 ```
