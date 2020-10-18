@@ -1,3 +1,4 @@
+#![feature(peekable_next_if)]
 extern crate proc_macro;
 extern crate proc_macro2;
 #[macro_use]
@@ -8,7 +9,6 @@ use syn::*;
 
 mod instructionset;
 mod instruction;
-mod match_builder;
 
 use instructionset::InstructionSet;
 

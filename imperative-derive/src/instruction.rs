@@ -314,6 +314,13 @@ impl Opcode {
                 let mut mask = vec!('0', '0', '0', '0', '0', '0', '0', '0');
                 mask[src_bit] = '1';
 
+                let mut num_bits = 1; //how many bits will be decoded by this mask
+                while let Some((_, (_, next_src_bit))) = src_pos_iter.next_if(
+                    |(_, (byte, bit))| *byte == src_byte && src_bit == *bit + num_bits) {
+                        mask[next_src_bit] = '1';
+                        num_bits += 1;
+                }
+
                 let mut mask_str:String = "0b".to_string();
                 mask_str.extend(mask.iter());
                 masks.push(LitInt::new(&mask_str, self.span()));
