@@ -13,7 +13,7 @@ enum Is {
 }
 
 #[test]
-fn encoding_hex_opcodes() {
+fn decoding_hex_opcodes() {
     let a = Is::A;
     let buf = [0x00, 0x00];
     let (num_bytes, instr) = Is::decode(&buf).expect("Failed to decode unit instruction");

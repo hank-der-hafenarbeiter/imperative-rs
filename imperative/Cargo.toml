@@ -13,3 +13,4 @@ description = "Auto derivable trait to easily define instruction sets"
 
 [dependencies]
 imperative-rs-derive = "0.1.3"
+

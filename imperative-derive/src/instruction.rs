@@ -251,7 +251,7 @@ impl Opcode {
         self.bytes.len()
     }
 
-    fn get_position_map_of<'a>(&'a self, var_name:char) -> Box<dyn Iterator<Item=(usize, (usize, usize))> + 'a> {
+    fn get_position_map_of<'a>(&'a self, var_name:char) -> Box<dyn Iterator<Item=(::std::primitive::usize, (::std::primitive::usize, ::std::primitive::usize))> + 'a> {
         Box::new(self.bytes.iter()
             .enumerate()
             .rev() //step through bytes in reverse order
@@ -354,7 +354,7 @@ impl Opcode {
             while let Some((src_bit, (tar_byte, tar_bit))) = positions_iter.next() {
                 let lshift = 7-tar_bit;
                 tokens.extend(quote!{
-                buf[#tar_byte] |= (((#ident >> #src_bit) & 1) << #lshift) as u8;
+                buf[#tar_byte] |= (((#ident >> #src_bit) & 1) << #lshift) as ::std::primitive::u8;
                 });
             }
         }
