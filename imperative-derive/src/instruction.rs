@@ -145,7 +145,37 @@ impl InstrWithVars {
         let mut variables = HashMap::new();
         for f in fields.named.into_iter() {
             let ident = f.ident.as_ref().unwrap();
-            let var_name = ident.to_string();
+            let var_name = if let Some(attr) = f.attrs.iter().find(|&attr| attr.path.is_ident("variable")) {
+                let meta = attr.parse_meta()?;
+                match meta {
+                    syn::Meta::NameValue(name_value) => {
+                        match name_value.lit {
+                            syn::Lit::Str(str_lit) => str_lit.value(),
+                            _ => {
+                                let err = Error::new(name_value.lit.span(), "Variable names must be defined as string literals (e.g. \"x\"");
+                                if let Err(ref mut total_error) = res {
+                                    total_error.combine(err);
+                                } else {
+                                    res = Err(err);
+                                }
+                                continue;
+                            },
+                        }
+                    }
+                    _ => {
+                        let err = Error::new(meta.span(), "Variable attribute declared but not value given (e.g. #[variable = \"x\"]");
+                        if let Err(ref mut total_error) = res {
+                            total_error.combine(err);
+                        } else {
+                            res = Err(err);
+                        }
+                        continue;
+                    }
+                }
+            } else {
+                ident.to_string()
+            };
+
             if var_name.len() != 1 {
                 let err = Error::new(ident.span(), "Variable names must be one symbol long");
                 if let Err(ref mut total_error) = res {

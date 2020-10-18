@@ -12,7 +12,7 @@ mod instruction;
 
 use instructionset::InstructionSet;
 
-#[proc_macro_derive(InstructionSet, attributes(opcode))]
+#[proc_macro_derive(InstructionSet, attributes(opcode, variable))]
 pub fn derive_instructionset(input: TokenStream) -> TokenStream {
     let instruction_set = parse_macro_input!(input as InstructionSet);
     let tokens = quote!{#instruction_set};
