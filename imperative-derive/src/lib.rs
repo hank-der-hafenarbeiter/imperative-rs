@@ -8,6 +8,7 @@ use syn::*;
 
 mod instructionset;
 mod instruction;
+mod match_builder;
 
 use instructionset::InstructionSet;
 
