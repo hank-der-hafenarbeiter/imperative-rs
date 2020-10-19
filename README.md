@@ -32,9 +32,15 @@ enum Is {
     //hex opcode with split variable x
     #[opcode = "0x1x0x"]
     Inc{x:u8},
-    //hex opcode with three variables
+    //hex opcode with three renamed variables
     #[ opcode = "0x2xxyyzz" ]
-    Add{x:u8, y:u8, z:u8},
+    Add{
+        #[variable = "x"]
+        reg:u8,
+        #[variable = "y"]
+        lhs:u8,
+        #[variable = "z"]
+        rhs:u8},
     //bin opcode with two variables and underscores for readability
     #[ opcode = "0b100000000_xxxxyyyyy_xyxyxyxy" ]
     Mov{x:u8, y:i8},
@@ -43,7 +49,7 @@ enum Is {
 fn main() {
     let mut mem = [0u8; 1024];
     let (num_bytes, Is::Nop) = Is::decode(&mem).unwrap();
-    let instruction = Is::Add{x:0xab, y:0xcd, z:0xef};
+    let instruction = Is::Add{reg:0xab, lhs:0xcd, rhs:0xef};
     assert_eq!(4, instruction.encode(&mut mem[100..]);
     assert_eq!([0x2a, 0xbc, 0xde, 0xf0], mem[100..104])
 }
