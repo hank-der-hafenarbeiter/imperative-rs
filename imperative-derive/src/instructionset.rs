@@ -74,6 +74,8 @@ impl ToTokens for InstructionSet {
         };
         
         tokens.extend(quote!{
+            #[automatically_derived]
+            #[allow(unused_qualifications)]
             impl InstructionSet for #ident#generics {
                 #encode_fn
                 #decode_fn
