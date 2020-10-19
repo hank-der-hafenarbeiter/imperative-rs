@@ -386,12 +386,29 @@ impl Opcode {
                 #(buf[#code_indices] = #code_bytes);*;
         };
         
-        for (c, (ident, _)) in variables.iter() {
+        for (c, (ident, ty)) in variables.iter() {
             let mut positions_iter = self.get_position_map_of(*c).peekable();
             while let Some((src_bit, (tar_byte, tar_bit))) = positions_iter.next() {
                 let lshift = 7-tar_bit;
+                let rshift = src_bit;
+                let mut mask = 1;
+
+                let mut num_bits = 1; //number of bits decoded by this mask
+                loop {
+                    let next_is_neighbour = positions_iter.peek().map_or(false, |(_, (byte, bit))|{
+                        *byte == tar_byte && tar_bit == *bit + num_bits
+                    });
+                    if next_is_neighbour {
+                        let _ = positions_iter.next().unwrap();
+                        mask = (mask << 1) + 1; 
+                        num_bits += 1;
+                    } else {
+                        break;
+                    }
+                }
+
                 tokens.extend(quote!{
-                buf[#tar_byte] |= (((#ident >> #src_bit) & 1) << #lshift) as ::std::primitive::u8;
+                buf[#tar_byte] |= (((#ident >> #rshift) & #mask as #ty) << #lshift) as ::std::primitive::u8;
                 });
             }
         }

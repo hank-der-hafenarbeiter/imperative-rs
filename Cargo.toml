@@ -3,6 +3,5 @@ members = [
 	"imperative",
 	"imperative-derive",
 	"imperative-tests",
-	"fuzz",
 ]
 
