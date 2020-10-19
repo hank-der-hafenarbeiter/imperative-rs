@@ -345,10 +345,17 @@ impl Opcode {
                 mask[src_bit] = '1';
 
                 let mut num_bits = 1; //how many bits will be decoded by this mask
-                while let Some((_, (_, next_src_bit))) = src_pos_iter.next_if(
-                    |(_, (byte, bit))| *byte == src_byte && src_bit == *bit + num_bits) {
+                loop {
+                    let next_is_neighbour = src_pos_iter.peek().map_or(false, |(_, (byte, bit))|{
+                        *byte == src_byte && src_bit == *bit + num_bits
+                    });
+                    if next_is_neighbour {
+                        let (_, (_, next_src_bit)) = src_pos_iter.next().unwrap();
                         mask[next_src_bit] = '1';
                         num_bits += 1;
+                    } else {
+                        break;
+                    }
                 }
 
                 let mut mask_str:String = "0b".to_string();
