@@ -28,14 +28,14 @@ dependencies = [
 
 [[package]]
 name = "imperative-rs"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "imperative-rs-derive",
 ]
 
 [[package]]
 name = "imperative-rs-derive"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "lazy_static",
  "proc-macro2",
