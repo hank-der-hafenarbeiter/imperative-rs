@@ -1,7 +1,7 @@
 use trybuild;
 
-mod encoding;
 mod decoding;
+mod encoding;
 
 #[test]
 fn compile_tests() {
@@ -21,6 +21,6 @@ fn compile_tests() {
     //t.compile_fail("tests/overflows/overflows.rs"); don't know how to implement this right now
     t.compile_fail("tests/invalid_enums/unnamed_fields.rs");
     t.compile_fail("tests/invalid_enums/var_name_longer_one.rs");
-    
+
     t.pass("tests/macro_hygiene/redefined_primitives.rs");
 }

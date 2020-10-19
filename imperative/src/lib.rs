@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! This crate provides the `InstructionSet`-trait and corresponding error types, as well as
 //! a procedural macro automatically derive the trait for `enum`s. A type implementing
 //! `InstructionSet` provides `fn InstructionSet::decode(...) -> {...}` to decode instructions from a `&[u8]`
@@ -64,7 +65,7 @@ pub enum DecodeError {
     /// }
     ///
     /// ```
-    Overflow
+    Overflow,
 }
 
 /// This Type is returned by `fn InstructionSet::encode(...) -> {...} when the instruction could not
@@ -81,11 +82,9 @@ pub trait InstructionSet: std::marker::Sized {
     /// Used to decode an instruction (i.e. `Self`) from a byte buffer. The buffer needs to be
     /// provided as a `&[u8]` and the function returns a result containing either a tuple containing
     /// the number of bytes written and the resulting instruction or an `DecodeError`.
-    fn decode(mem:&[u8]) -> Result<(usize, Self), DecodeError>;
+    fn decode(mem: &[u8]) -> Result<(usize, Self), DecodeError>;
     /// Used to encode instructions into a byte buffer. The buffer needs to be provided as a
     /// `&mut [u8]`. The function returns a result containing either the number of bytes read or an
     /// `EncodeError`
-    fn encode(&self, buf:&mut [u8]) -> Result<usize, EncodeError>;
+    fn encode(&self, buf: &mut [u8]) -> Result<usize, EncodeError>;
 }
-
-
