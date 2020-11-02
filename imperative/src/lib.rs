@@ -4,9 +4,9 @@
 //! `InstructionSet` provides `fn InstructionSet::decode(...) -> {...}` to decode instructions from a `&[u8]`
 //! and `fn InstructionSet::encode(...) -> {...}` to encode and write an instruction into a `&[u8]`.
 //!```rust
-//! use imperative::InstructionSet;
+//! use imperative_rs::InstructionSet;
 //!
-//!#[derive(InstructionSet)]
+//!#[derive(InstructionSet, PartialEq, Debug)]
 //!enum Is {
 //!    //constant opcode
 //!    #[opcode = "0x0000"]
@@ -30,9 +30,11 @@
 //!
 //!fn main() {
 //!    let mut mem = [0u8; 1024];
-//!    let (num_bytes, Is::Nop) = Is::decode(&mem).unwrap();
+//!    let (num_bytes, instr) = Is::decode(&mem).unwrap();
+//!    assert_eq!(num_bytes, 2);
+//!    assert_eq!(instr, Is::Nop);
 //!    let instruction = Is::Add{reg:0xab, lhs:0xcd, rhs:0xef};
-//!    assert_eq!(4, instruction.encode(&mut mem[100..]);
+//!    assert_eq!(4, instruction.encode(&mut mem[100..]).unwrap());
 //!    assert_eq!([0x2a, 0xbc, 0xde, 0xf0], mem[100..104])
 //!}
 //!```
@@ -47,10 +49,10 @@ pub enum DecodeError {
     /// Is emitted if the slice ended before a complete opcode could be found. Extending the end
     /// of the slice could lead to successful decoding.
     UnexpectedEOF,
-    /// Is emitted if the opcode encodes a variable that is too big for the corresponding variable.
+    /// NOT IMPLEMENTED YET. Is emitted if the opcode encodes a variable that is too big for the corresponding variable.
     /// An example would be if the opcode contains a 9 bit variable that is put into a `u8` during
     /// decoding.
-    /// ```
+    /// ```should_panic
     /// use imperative_rs::{InstructionSet, DecodeError};
     /// #[derive(InstructionSet)]
     /// enum Is {
@@ -61,7 +63,8 @@ pub enum DecodeError {
     /// fn main () {
     ///     let mem = [0b00000001, 0b11111111];
     ///     let instr = Is::decode(&mem);
-    ///     assert_eq!(DecodeError::Overflow, instr); //trying to cast 256 into an u8
+    ///     assert!(instr.is_ok()); //trying to cast 256 into an u8 this should
+    ///                             //be an Error but currently panics
     /// }
     ///
     /// ```

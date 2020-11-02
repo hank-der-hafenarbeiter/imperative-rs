@@ -8,7 +8,8 @@ use syn::spanned::Spanned;
 use syn::token::{Brace, Paren};
 use syn::Result as SynResult;
 use syn::{
-    Attribute, Error, FieldsNamed, FieldsUnnamed, Ident, LitInt, LitStr, Token, Type, Visibility,
+    parse_quote, Attribute, Error, FieldsNamed, FieldsUnnamed, Ident, LitInt, LitStr, Token, Type,
+    Visibility,
 };
 
 pub(crate) enum Instruction {
@@ -405,9 +406,30 @@ impl Opcode {
                 right_shifts.push(7 - src_bit);
                 left_shifts.push(tar_bit);
             }
-            var_decoders.push(quote! {
-                #ident: #((((mem[#src_bytes] & #masks) >> #right_shifts) as #ty) << #left_shifts)|*
-            })
+            var_decoders.push(
+                if *ty == parse_quote!(u8) ||
+                *ty == parse_quote!(u16) ||
+                *ty == parse_quote!(u32) ||
+                *ty == parse_quote!(u64) ||
+                *ty == parse_quote!(u128) ||
+                *ty == parse_quote!(usize) ||
+                *ty == parse_quote!(i8) ||
+                *ty == parse_quote!(i16) ||
+                *ty == parse_quote!(i32) ||
+                *ty == parse_quote!(i64) ||
+                *ty == parse_quote!(i128) ||
+                *ty == parse_quote!(isize) {
+                    quote! {
+                        #ident: #((((mem[#src_bytes] & #masks) >> #right_shifts) as #ty) << #left_shifts)|*
+                    }
+                } else if *ty == parse_quote!(bool) {
+                    //#ident: #((mem[#src_bytes] >> #right_shifts) != 0)|*
+                    quote!{
+                        #ident: #((((mem[#src_bytes] & #masks) >> #right_shifts) != 0))|*
+                    }
+                } else {
+                    Error::new(ty.span(), format!("Unsupported type {:?}", ty)).to_compile_error()
+            });
         }
 
         quote! {
@@ -451,8 +473,28 @@ impl Opcode {
                     }
                 }
 
-                tokens.extend(quote!{
-                buf[#tar_byte] |= (((#ident >> #rshift) & #mask as #ty) << #lshift) as ::std::primitive::u8;
+                tokens.extend(
+                    if *ty == parse_quote!(u8) ||
+                        *ty == parse_quote!(u16) ||
+                        *ty == parse_quote!(u32) ||
+                        *ty == parse_quote!(u64) ||
+                        *ty == parse_quote!(u128) ||
+                        *ty == parse_quote!(usize) ||
+                        *ty == parse_quote!(i8) ||
+                        *ty == parse_quote!(i16) ||
+                        *ty == parse_quote!(i32) ||
+                        *ty == parse_quote!(i64) ||
+                        *ty == parse_quote!(i128) ||
+                        *ty == parse_quote!(isize) {
+                        quote! {
+                            buf[#tar_byte] |= (((#ident >> #rshift) & #mask as #ty) << #lshift) as ::std::primitive::u8;
+                        }
+                    } else if *ty == parse_quote!(bool) {
+                        quote!{
+                            buf[#tar_byte] |= ((if *#ident {1} else {0}) << #lshift) as ::std::primitive::u8;
+                        }
+                    } else {
+                        Error::new(ty.span(), format!("Unsupported type {:?}", ty)).to_compile_error()
                 });
             }
         }

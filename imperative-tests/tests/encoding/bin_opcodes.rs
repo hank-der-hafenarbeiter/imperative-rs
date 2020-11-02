@@ -8,8 +8,10 @@ enum Is {
     B { x: u8 },
     #[opcode = "0b0x0y0z10"]
     C { x: u8, y: u8, z: u8 },
-    #[opcode = "0b11xxyyxx"]
+    #[opcode = "0b110xyyxx"]
     D { x: u8, y: i8 },
+    #[opcode = "0b111xxxxx"]
+    E { x: bool },
 }
 
 #[test]
@@ -58,8 +60,20 @@ fn encoding_bin_opcodes() {
         "Failed to encode instruction multiple interleaved variables"
     );
     assert_eq!(
-        0b11111111, buf[0],
-        "Encoded instruction as {:b}. Correct 0b11111111",
+        0b11011111, buf[0],
+        "Encoded instruction as {:b}. Correct 0b11011111",
+        buf[0]
+    );
+
+    let d = Is::E { x: true };
+    assert_eq!(
+        Ok(1),
+        d.encode(&mut buf),
+        "Failed to encode instruction multiple interleaved variables"
+    );
+    assert_eq!(
+        0b11100001, buf[0],
+        "Encoded instruction as {:b}. Correct 0b11100001",
         buf[0]
     );
 }
