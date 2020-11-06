@@ -24,7 +24,7 @@
 //!        #[variable = "z"]
 //!        rhs:u8},
 //!    //bin opcode with two variables and underscores for readability
-//!    #[ opcode = "0b100000000_xxxxyyyyy_xyxyxyxy" ]
+//!    #[ opcode = "0b100000000_xxxxyyyy_xyxyxyxy" ]
 //!    Mov{x:u8, y:i8},
 //!}
 //!
@@ -49,25 +49,9 @@ pub enum DecodeError {
     /// Is emitted if the slice ended before a complete opcode could be found. Extending the end
     /// of the slice could lead to successful decoding.
     UnexpectedEOF,
-    /// NOT IMPLEMENTED YET. Is emitted if the opcode encodes a variable that is too big for the corresponding variable.
-    /// An example would be if the opcode contains a 9 bit variable that is put into a `u8` during
-    /// decoding.
-    /// ```should_panic
-    /// use imperative_rs::{InstructionSet, DecodeError};
-    /// #[derive(InstructionSet)]
-    /// enum Is {
-    ///     #[opcode = "0b0000000v_vvvvvvvv"]
-    ///     A{v:u8},
-    /// }
-    ///
-    /// fn main () {
-    ///     let mem = [0b00000001, 0b11111111];
-    ///     let instr = Is::decode(&mem);
-    ///     assert!(instr.is_ok()); //trying to cast 256 into an u8 this should
-    ///                             //be an Error but currently panics
-    /// }
-    ///
-    /// ```
+    /// Is emitted when the target variable overflows during decoding.
+    /// Overflows should be caught at compiletime so encountering this error is currently a bug.
+    /// This might change in the future.
     Overflow,
 }
 

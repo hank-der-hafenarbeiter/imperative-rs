@@ -10,8 +10,6 @@ enum Is {
     C { x: u8, y: u8, z: u8 },
     #[opcode = "0x3xyx"]
     D { x: u8, y: i8 },
-    #[opcode = "0x4xxx"]
-    E { x: bool },
 }
 
 #[test]
@@ -62,19 +60,6 @@ fn encoding_hex_opcodes() {
         Ok(2),
         d.encode(&mut buf),
         "Failed to encode instruction multiple interleaved variables"
-    );
-    assert_eq!(
-        correct, buf,
-        "Encoded instruction as {:x?}. Correct: {:x?}",
-        buf, correct
-    );
-
-    let e = Is::E { x: true };
-    let correct = [0x41, 0x01];
-    assert_eq!(
-        Ok(2),
-        e.encode(&mut buf),
-        "Failed to encode instruction with boolean variable"
     );
     assert_eq!(
         correct, buf,

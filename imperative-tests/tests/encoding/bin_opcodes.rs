@@ -10,7 +10,7 @@ enum Is {
     C { x: u8, y: u8, z: u8 },
     #[opcode = "0b110xyyxx"]
     D { x: u8, y: i8 },
-    #[opcode = "0b111xxxxx"]
+    #[opcode = "0b1110000x"]
     E { x: bool },
 }
 

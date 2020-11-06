@@ -3,7 +3,7 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::collections::HashMap;
-use std::mem::size_of;
+use std::mem;
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 use syn::token::{Brace, Paren};
@@ -53,7 +53,7 @@ fn is_supported_type(ty: &Type) -> bool {
         || *ty == parse_quote!(bool)
 }
 
-fn memory_size_of_type(ty: &Type) -> usize {
+fn size_of(ty: &Type) -> usize {
     //! Returns the number of bits the input type fills
     if *ty == parse_quote!(u8) {
         8
@@ -76,9 +76,9 @@ fn memory_size_of_type(ty: &Type) -> usize {
     } else if *ty == parse_quote!(i128) {
         128
     } else if *ty == parse_quote!(usize) {
-        8 * size_of::<usize>()
+        8 * mem::size_of::<usize>()
     } else if *ty == parse_quote!(isize) {
-        8 * size_of::<isize>()
+        8 * mem::size_of::<isize>()
     } else if *ty == parse_quote!(bool) {
         1
     } else {
@@ -184,15 +184,15 @@ impl InstrWithVars {
 
     fn check_opcode(&self) -> SynResult<()> {
         let mut res: SynResult<()> = Ok(());
-        let mut variables: HashMap<&char, (&Ident, bool)> = self
+        let mut variables: HashMap<&char, (&Ident, &Type, usize)> = self
             .var_map
             .iter()
-            .map(|(c, (i, _))| (c, (i, false)))
+            .map(|(c, (i, t))| (c, (i, t, 0)))
             .collect();
 
         for bit in self.opcode.bytes.iter().flatten() {
             match variables.get_mut(bit) {
-                Some(entry) => entry.1 = true,
+                Some(entry) => entry.2 += 1,
                 None => {
                     if *bit != '0' && *bit != '1' {
                         let err = Error::new(self.opcode.span,
@@ -206,19 +206,35 @@ impl InstrWithVars {
                 }
             }
         }
-        for (c, ident) in variables
-            .iter()
-            .filter(|(_, (_, visited))| !*visited)
-            .map(|(c, (ident, _visited))| (c, ident))
-        {
-            let err = Error::new(
-                ident.span(),
-                &format!("Variable {} declared but never used in opcode.", c),
-            );
-            if let Err(ref mut total_error) = res {
-                total_error.combine(err);
-            } else {
-                res = Err(err);
+        //check for variables that are not used in the opcode.
+        for (c, (ident, ty, num_bits)) in variables.iter() {
+            if *num_bits == 0 {
+                let err = Error::new(
+                    ident.span(),
+                    &format!(
+                        "Variable {:?} (with symbol: {:?}) declared but never used in opcode.",
+                        ident, c
+                    ),
+                );
+                if let Err(ref mut total_error) = res {
+                    total_error.combine(err);
+                } else {
+                    res = Err(err);
+                }
+            }
+            if size_of(ty) < *num_bits {
+                let err = Error::new(
+                    ident.span(),
+                    &format!(
+                        "Variable {} (with symbol: {}) has fewer bits ({}) than positions in opcode ({}). (e.g. u8 with 9 bits in opcode)",
+                        ident, c, size_of(ty), num_bits
+                    ),
+                );
+                if let Err(ref mut total_error) = res {
+                    total_error.combine(err);
+                } else {
+                    res = Err(err);
+                }
             }
         }
         res

@@ -1,4 +1,4 @@
-error: Variable w declared but never used in opcode.
+error: Variable Ident { ident: "w", span: #0 bytes(107..108) } (with symbol: 'w') declared but never used in opcode.
  --> $DIR/missing_in_opcode.rs:6:11
   |
 6 |     Instr{w:u8},
