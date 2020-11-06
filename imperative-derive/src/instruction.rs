@@ -3,6 +3,7 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::collections::HashMap;
+use std::mem::size_of;
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 use syn::token::{Brace, Paren};
@@ -11,6 +12,82 @@ use syn::{
     parse_quote, Attribute, Error, FieldsNamed, FieldsUnnamed, Ident, LitInt, LitStr, Token, Type,
     Visibility,
 };
+
+lazy_static! {
+    static ref HEX_TO_BIN: HashMap<char, &'static str> = vec!(
+        ('0', "0000"),
+        ('1', "0001"),
+        ('2', "0010"),
+        ('3', "0011"),
+        ('4', "0100"),
+        ('5', "0101"),
+        ('6', "0110"),
+        ('7', "0111"),
+        ('8', "1000"),
+        ('9', "1001"),
+        ('a', "1010"),
+        ('b', "1011"),
+        ('c', "1100"),
+        ('d', "1101"),
+        ('e', "1110"),
+        ('f', "1111")
+    )
+    .into_iter()
+    .collect();
+}
+
+fn is_supported_type(ty: &Type) -> bool {
+    //!Returns true if the input type is supported by this library else returns false
+    *ty == parse_quote!(u8)
+        || *ty == parse_quote!(i8)
+        || *ty == parse_quote!(u16)
+        || *ty == parse_quote!(i16)
+        || *ty == parse_quote!(u32)
+        || *ty == parse_quote!(i32)
+        || *ty == parse_quote!(u64)
+        || *ty == parse_quote!(i64)
+        || *ty == parse_quote!(u128)
+        || *ty == parse_quote!(i128)
+        || *ty == parse_quote!(usize)
+        || *ty == parse_quote!(isize)
+        || *ty == parse_quote!(bool)
+}
+
+fn memory_size_of_type(ty: &Type) -> usize {
+    //! Returns the number of bits the input type fills
+    if *ty == parse_quote!(u8) {
+        8
+    } else if *ty == parse_quote!(i8) {
+        8
+    } else if *ty == parse_quote!(u16) {
+        16
+    } else if *ty == parse_quote!(i16) {
+        16
+    } else if *ty == parse_quote!(u32) {
+        32
+    } else if *ty == parse_quote!(i32) {
+        32
+    } else if *ty == parse_quote!(u64) {
+        64
+    } else if *ty == parse_quote!(i64) {
+        64
+    } else if *ty == parse_quote!(u128) {
+        128
+    } else if *ty == parse_quote!(i128) {
+        128
+    } else if *ty == parse_quote!(usize) {
+        8 * size_of::<usize>()
+    } else if *ty == parse_quote!(isize) {
+        8 * size_of::<isize>()
+    } else if *ty == parse_quote!(bool) {
+        1
+    } else {
+        panic!(format!(
+            "Unexpected type {:?} when getting memory size.",
+            ty
+        ));
+    }
+}
 
 pub(crate) enum Instruction {
     WithVars(InstrWithVars),
@@ -214,6 +291,18 @@ impl InstrWithVars {
                 }
                 continue;
             }
+            if !is_supported_type(&f.ty) {
+                let err = Error::new(
+                    ident.span(),
+                    format!("The type {:?} is currently not supported.", &f.ty),
+                );
+                if let Err(ref mut total_error) = res {
+                    total_error.combine(err);
+                } else {
+                    res = Err(err);
+                }
+                continue;
+            }
             let (ident, ty) = (f.ident, f.ty);
             variables.insert(var_name, (ident.unwrap(), ty));
         }
@@ -247,29 +336,6 @@ impl InstrWithVars {
 
         (encoder_block, decode_block)
     }
-}
-
-lazy_static! {
-    static ref HEX_TO_BIN: HashMap<char, &'static str> = vec!(
-        ('0', "0000"),
-        ('1', "0001"),
-        ('2', "0010"),
-        ('3', "0011"),
-        ('4', "0100"),
-        ('5', "0101"),
-        ('6', "0110"),
-        ('7', "0111"),
-        ('8', "1000"),
-        ('9', "1001"),
-        ('a', "1010"),
-        ('b', "1011"),
-        ('c', "1100"),
-        ('d', "1101"),
-        ('e', "1110"),
-        ('f', "1111")
-    )
-    .into_iter()
-    .collect();
 }
 
 fn hex_to_bin_string(src_str: &str) -> String {
