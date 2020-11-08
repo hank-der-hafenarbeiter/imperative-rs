@@ -1,0 +1,15 @@
+[package]
+name = "imperative-bench"
+version = "0.1.0"
+authors = ["Hank-der-Hafenarbeiter <kevin.kielholz@rwth-aachen.de>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+imperative-rs = "0.3.0"
+criterion = "0.3.3"
+
+[[bench]]
+name = "chip8"
+harness = false
