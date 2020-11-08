@@ -95,13 +95,19 @@ pub(crate) enum Instruction {
 }
 
 impl Instruction {
-    pub(crate) fn codec_blocks(&self) -> (TokenStream2, TokenStream2) {
+    pub(crate) fn encoder_block(&self) -> TokenStream2 {
         match self {
-            Instruction::WithVars(instr) => instr.codec_blocks(),
-            Instruction::Unit(instr) => instr.codec_blocks(),
+            Instruction::WithVars(instr) => instr.encoder_block(),
+            Instruction::Unit(instr) => instr.encoder_block(),
         }
     }
 
+    pub(crate) fn decoder_block(&self) -> TokenStream2 {
+        match self {
+            Instruction::WithVars(instr) => instr.decoder_block(),
+            Instruction::Unit(instr) => instr.decoder_block(),
+        }
+    }
     pub(crate) fn opcode(&self) -> &Opcode {
         match self {
             Instruction::WithVars(instr) => &instr.opcode,
@@ -135,15 +141,19 @@ pub(crate) struct UnitInstr {
 }
 
 impl UnitInstr {
-    fn codec_blocks(&self) -> (TokenStream2, TokenStream2) {
+    fn decoder_block(&self) -> TokenStream2 {
         let self_ident = &self.ident;
         let num_bytes = self.opcode.num_bytes();
         let conditions = self.opcode.build_match_conditions();
 
-        let decode_block = quote! {
+        quote! {
             if #conditions { Ok((#num_bytes, Self::#self_ident)) }
-        };
+        }
+    }
 
+    fn encoder_block(&self) -> TokenStream2 {
+        let self_ident = &self.ident;
+        let num_bytes = self.opcode.num_bytes();
         let code_strings: Vec<LitInt> = self
             .opcode
             .code_strings()
@@ -151,7 +161,7 @@ impl UnitInstr {
             .collect();
         let byte_indices = 0..code_strings.len();
 
-        let encode_block = quote! {
+        quote! {
             Self::#self_ident => {
                 if buf.len() < #num_bytes {
                     return Err(imperative_rs::EncodeError::UnexpectedEOF);
@@ -159,9 +169,7 @@ impl UnitInstr {
                 #(buf[#byte_indices] = #code_strings);*;
                 return Ok(#num_bytes);
             },
-        };
-
-        (encode_block, decode_block)
+        }
     }
 }
 
@@ -325,32 +333,28 @@ impl InstrWithVars {
         res.map(|_| variables)
     }
 
-    fn codec_blocks(&self) -> (TokenStream2, TokenStream2) {
-        for c in self.opcode.bytes.iter().flat_map(|byte| byte.iter()) {
-            if !(self.var_map.contains_key(c) || *c == '0' || *c == '1') {
-                return (quote!(if false {}), quote! {});
-            }
-        }
-
+    fn decoder_block(&self) -> TokenStream2 {
         let num_bytes = self.opcode.num_bytes();
         let var_decoders = self.opcode.build_var_decoders(&self.var_map);
         let match_conditions = self.opcode.build_match_conditions();
         let ident = &self.ident;
-        let decode_block = quote! {
+        quote! {
             if #match_conditions {
                 Ok((#num_bytes, Self::#ident{
                     #var_decoders
                 }))
             }
-        };
+        }
+    }
+
+    fn encoder_block(&self) -> TokenStream2 {
+        let ident = &self.ident;
         let encoder = self.opcode.build_encoder(&self.var_map);
         let var_idents: Vec<&Ident> = self.var_map.iter().map(|(_, (ident, _))| ident).collect();
 
-        let encoder_block = quote! {
+        quote! {
             Self::#ident{ #(#var_idents),* } => {#encoder},
-        };
-
-        (encoder_block, decode_block)
+        }
     }
 }
 

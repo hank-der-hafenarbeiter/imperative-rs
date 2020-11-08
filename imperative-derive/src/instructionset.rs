@@ -46,28 +46,18 @@ impl ToTokens for InstructionSet {
         let ident = &self.ident;
         let generics = &self.generics;
 
-        let (encode_blocks, decode_blocks): (Vec<TokenStream2>, Vec<TokenStream2>) = self
+        let encode_blocks: Vec<TokenStream2> = self
             .instructions
             .iter()
-            .map(|instr| instr.codec_blocks())
-            .unzip();
+            .map(|instr| instr.encoder_block())
+            .collect();
 
-        let mut decode_blocks = decode_blocks.iter();
         let instructions: Vec<&Instruction> = self.instructions.iter().collect();
         let matcher = MatchArm::from_list(&instructions);
-        let decode_fn = if let Some(_first_if) = decode_blocks.next() {
-            quote! {
-                fn decode(mem:&[::std::primitive::u8]) -> ::std::result::Result<(::std::primitive::usize, #ident#generics), imperative_rs::DecodeError> {
-                    #matcher
-                    //#first_if
-                    //#(else #decode_blocks)*
-                    //else {
-                    //    Err(imperative_rs::DecodeError::UnknownOpcode)
-                    //}
-                }
+        let decode_fn = quote! {
+            fn decode(mem:&[::std::primitive::u8]) -> ::std::result::Result<(::std::primitive::usize, #ident#generics), imperative_rs::DecodeError> {
+                #matcher
             }
-        } else {
-            quote!()
         };
 
         let encode_fn = quote! {

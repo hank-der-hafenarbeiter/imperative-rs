@@ -3,6 +3,16 @@ use crate::instruction::Instruction;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 
+/// This matcher models the structure of decoding an instruction set by implementing a binary tree.
+/// When the list only contains one instruction a `MatchArm::Leaf` is formed.
+/// If there are more than one element in the list, the most significant bit is selected (see
+/// `MatchArm::find_msb(...)`).
+/// When the bit is selected the instructions are split/forked into instructions that contain a 0
+/// in that position and those which contain a 1. Instructions that could contain both (i.e. there
+/// is variable encoded in that bit) are pushed into both lists. From these lists the zero and one
+/// arms of the fork are constructed.
+/// This struct implements `quote::ToTokens` through which it constructs the decoder for the
+/// `InstructionSet::decode(..)` method.
 pub(crate) enum MatchArm<'a> {
     Fork {
         zero: Box<MatchArm<'a>>,
@@ -17,16 +27,12 @@ pub(crate) enum MatchArm<'a> {
 impl<'a> MatchArm<'a> {
 
     pub(crate) fn from_list(instr_list: &Vec<&'a Instruction>) -> MatchArm<'a> {
+        //! This function ceates the match arms for the given list of instructions. When given the
+        //! full instruction set it will construct the full decoder for that instructionset
         match instr_list.len()  {
             0 => panic!("Trying to build MatchArm from empty list"),
             1 => {
                 MatchArm::Leaf{instr:instr_list[0]}
-            },
-            2 => {
-                let msb = Self::find_msb(&instr_list); 
-                let (zero_instrs, one_instrs) = Self::fork_instructions(&instr_list, msb);
-                let (zero_arm, one_arm) = (Self::from_list(&zero_instrs), Self::from_list(&one_instrs));
-                MatchArm::Fork{zero:Box::new(zero_arm), one:Box::new(one_arm), msb}
             },
             _ => {
                 let msb = Self::find_msb(&instr_list); 
@@ -38,6 +44,11 @@ impl<'a> MatchArm<'a> {
     }
 
     fn fork_instructions(instr_list:&Vec<&'a Instruction>, msb:usize) -> (Vec<&'a Instruction>, Vec<&'a Instruction>) {
+        //! Forks a list of instructions into two lists depending on the defined most significant
+        //! bit. For each instruction the function checks if the bit in it's opcode is constant (i.e
+        //! '0' or '1') or contains a variables (i.e. '*'). If it is constant it's sorted into
+        //! corresponding branch. If it's variable (meaning the bit could be either 1 or 0) it is
+        //! put into both branches
         let mut ones: Vec<&Instruction> = vec!();
         let mut zeros: Vec<&Instruction> = vec!();
 
@@ -59,6 +70,17 @@ impl<'a> MatchArm<'a> {
     }
 
     fn find_msb(instr_list: &Vec<&Instruction>) -> usize {
+        //! This function calculates the most significant bit in terms of information content.
+        //! It does so by counting the instructions that contain a '0', '1' and '*' ('*' meaning
+        //! that there is a variable encoded in this bit). Then it calculates the information
+        //! content of this bit for all instructions where it is constant (i.e. where it is not
+        //! '*') and weights it by the proportion of instructions that are variable in this bit.
+        //! A bit scores the highest of 1 when half the list has a '0' in this position and the other
+        //! half has a '1'. If all instructions are the same or variable (i.e. '*'/there is a
+        //! variable decoded in it) in a bit the bit is useless and scores 0.
+        //! In simple terms this function trys to split the list into two, trying to minimize the
+        //! amount of instructions that need to be duplicated into both lists (because they contain
+        //! a variable in the deciding bit) while keeping both lists the same length.
         let opcodes: Vec<Vec<char>> = instr_list
             .iter()
             .map(|instr| instr.opcode().collision_iter().collect())
@@ -119,7 +141,7 @@ impl<'a> ToTokens for MatchArm<'a> {
                 });
             },
             MatchArm::Leaf{ instr } => {
-                tokens.extend(instr.codec_blocks().1);
+                tokens.extend(instr.decoder_block());
                 tokens.extend(quote!{
                     else {
                         Err(imperative_rs::DecodeError::UnknownOpcode)
