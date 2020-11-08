@@ -50,6 +50,7 @@ config.mk
 config.stamp
 Session.vim
 .cargo
+Cargo.lock
 !/src/test/run-make/thumb-none-qemu/example/.cargo
 no_llvm_build
 imperative/target
@@ -57,4 +58,6 @@ imperative/Cargo.lock
 imperative-derive/target
 imperative-derive/Cargo.lock
 imperative-tests/target
+imperative-bench/Cargo.lock
+imperative-bench/target
 # Before adding new lines, see the comment at the top.

@@ -18,74 +18,79 @@ enum Unit {
 fn variable_length_no_vars() {
     {
         let one = Unit::One;
-        let mut buf = [0x00; 12];
-        buf[0] = 0x0f;
-        let (num_bytes, instr) = Unit::decode(&buf).expect("Failed to decode unit instruction");
+        let mut buf = [0x00; 5];
+        let correct = [0x0f, 0x00, 0x00, 0x00, 0x00];
+        let num_bytes = one
+            .encode(&mut buf)
+            .expect("Failed to decode unit instruction");
         assert_eq!(
             1, num_bytes,
             "Reported wrong number of bytes when encoding one byte unit instruction"
         );
-        assert_eq!(one, instr, "Encoded one byte uni instruction incorrectly");
+        assert_eq!(correct, buf, "Encoded one byte uni instruction incorrectly");
     }
     {
         let two = Unit::Two;
-        let mut buf = [0xff; 12];
-        buf[0] = 0x1f;
-        for idx in 2..12 {
-            buf[idx] = 0x00;
-        }
-        let (num_bytes, instr) = Unit::decode(&buf).expect("Failed to decode unit instruction");
+        let mut buf = [0x00; 5];
+        let correct = [0x1f, 0xff, 0x00, 0x00, 0x00];
+        let num_bytes = two
+            .encode(&mut buf)
+            .expect("Failed to decode unit instruction with 2 bytes");
         assert_eq!(
             2, num_bytes,
             "Reported wrong number of bytes when encoding two bytes unit instruction"
         );
-        assert_eq!(two, instr, "Encoded one byte uni instruction incorrectly");
+        assert_eq!(correct, buf, "Encoded two byte uni instruction incorrectly");
     }
     {
         let three = Unit::Three;
-
-        let mut buf = [0xff; 12];
-        buf[0] = 0x2f;
-        for idx in 3..12 {
-            buf[idx] = 0x00;
-        }
-        let (num_bytes, instr) = Unit::decode(&buf).expect("Failed to decode unit instruction");
+        let mut buf = [0x00; 5];
+        let correct = [0x2f, 0xff, 0xff, 0x00, 0x00];
+        let num_bytes = three
+            .encode(&mut buf)
+            .expect("Failed to decode unit instruction with 3 bytes");
         assert_eq!(
             3, num_bytes,
             "Reported wrong number of bytes when encoding three bytes unit instruction"
         );
-        assert_eq!(three, instr, "Encoded one byte uni instruction incorrectly");
+        assert_eq!(
+            correct, buf,
+            "Encoded three byte uni instruction incorrectly"
+        );
     }
     {
         let four = Unit::Four;
+        let mut buf = [0x00; 5];
+        let correct = [0x3f, 0xff, 0xff, 0xff, 0x00];
+        let num_bytes = four
+            .encode(&mut buf)
+            .expect("Failed to decode unit instruction with 4 bytes");
 
-        let mut buf = [0xff; 12];
-        buf[0] = 0x3f;
-        for idx in 4..12 {
-            buf[idx] = 0x00;
-        }
-        let (num_bytes, instr) = Unit::decode(&buf).expect("Failed to decode unit instruction");
         assert_eq!(
             4, num_bytes,
             "Reported wrong number of bytes when encoding four bytes unit instruction"
         );
-        assert_eq!(four, instr, "Encoded four byte uni instruction incorrectly");
+        assert_eq!(
+            correct, buf,
+            "Encoded four byte uni instruction incorrectly"
+        );
     }
     {
         let five = Unit::Five;
+        let mut buf = [0x00; 5];
+        let correct = [0x4f, 0xff, 0xff, 0xff, 0xff];
+        let num_bytes = five
+            .encode(&mut buf)
+            .expect("Failed to decode unit instruction with 5 bytes");
 
-        let mut buf = [0xff; 12];
-        buf[0] = 0x4f;
-        for idx in 5..12 {
-            buf[idx] = 0x00;
-        }
-
-        let (num_bytes, instr) = Unit::decode(&buf).expect("Failed to decode unit instruction");
         assert_eq!(
             5, num_bytes,
             "Reported wrong number of bytes when encoding five bytes unit instruction"
         );
-        assert_eq!(five, instr, "Encoded five byte uni instruction incorrectly");
+        assert_eq!(
+            correct, buf,
+            "Encoded five byte uni instruction incorrectly"
+        );
     }
 }
 
@@ -106,126 +111,106 @@ enum Vars {
 #[test]
 fn with_variables() {
     {
-        let mut buf = [0xff; 8];
+        let mut buf = [0x00; 5];
+        let correct = [0x01, 0x00, 0x00, 0x00, 0x00];
         let variant = Vars::One { x: 1 };
-        buf[0] = 1;
-        let num_bytes = 1;
-        for idx in num_bytes..8 {
-            buf[idx] = 0;
-        }
-        let (num_bytes, instr) = Vars::decode(&buf).expect("Failed to decode unit instruction");
+        let num_bytes = variant
+            .encode(&mut buf)
+            .expect("Failed to encode 1 byte instruction with variable(s)");
         assert_eq!(
             1, num_bytes,
             "Reported wrong number of bytes when encoding {} bytes instruction with variables",
             num_bytes
         );
         assert_eq!(
-            variant, instr,
+            correct, buf,
             "Encoding {} byte instruction with variables incorrectly",
             num_bytes
         );
     }
     {
-        let mut buf = [0xff; 8];
-        let variant = Vars::Two { x: 0xab, y: 0xc };
-        buf[0] = 0x1a;
-        buf[1] = 0xbc;
-        let num_bytes = 2;
-        for idx in num_bytes..8 {
-            buf[idx] = 0;
-        }
-        let (num_bytes, instr) = Vars::decode(&buf).expect("Failed to decode unit instruction");
+        let mut buf = [0x00; 5];
+        let correct = [0x1a, 0xbc, 0x00, 0x00, 0x00];
+        let variant = Vars::Two { x: 0xab, y: 0x0c };
+        let num_bytes = variant
+            .encode(&mut buf)
+            .expect("Failed to encode 2 byte instruction with variable(s)");
         assert_eq!(
             2, num_bytes,
             "Reported wrong number of bytes when encoding {} bytes instruction with variables",
             num_bytes
         );
         assert_eq!(
-            variant, instr,
+            correct, buf,
             "Encoding {} byte instruction with variables incorrectly",
             num_bytes
         );
     }
     {
-        let mut buf = [0xff; 8];
+        let mut buf = [0x00; 5];
+        let correct = [0x2a, 0xbc, 0xde, 0x00, 0x00];
         let variant = Vars::Three {
-            x: 0xa,
-            y: 0xb,
+            x: 0x0a,
+            y: 0x0b,
             z: 0xcde,
         };
-        buf[0] = 0x2a;
-        buf[1] = 0xbc;
-        buf[2] = 0xde;
-        let num_bytes = 3;
-        for idx in num_bytes..8 {
-            buf[idx] = 0;
-        }
-        let (num_bytes, instr) = Vars::decode(&buf).expect("Failed to decode unit instruction");
+        let num_bytes = variant
+            .encode(&mut buf)
+            .expect("Failed to encode 3 byte instruction with variable(s)");
         assert_eq!(
             3, num_bytes,
             "Reported wrong number of bytes when encoding {} bytes instruction with variables",
             num_bytes
         );
         assert_eq!(
-            variant, instr,
+            correct, buf,
             "Encoding {} byte instruction with variables incorrectly",
             num_bytes
         );
     }
     {
-        let mut buf = [0xff; 8];
+        let mut buf = [0x00; 5];
+        let correct = [0x30, 0xaf, 0xbf, 0xcd, 0x00];
         let variant = Vars::Four {
-            w: 0xa,
-            x: 0xb,
-            y: 0xc,
-            z: 0xd,
+            w: 0x0a,
+            x: 0x0b,
+            y: 0x0c,
+            z: 0x0d,
         };
-        buf[0] = 0x30;
-        buf[1] = 0xaf;
-        buf[2] = 0xbf;
-        buf[3] = 0xcd;
-        let num_bytes = 4;
-        for idx in num_bytes..8 {
-            buf[idx] = 0;
-        }
-        let (num_bytes, instr) = Vars::decode(&buf).expect("Failed to decode unit instruction");
+        let num_bytes = variant
+            .encode(&mut buf)
+            .expect("Failed to encode 4 byte instruction with variable(s)");
         assert_eq!(
             4, num_bytes,
             "Reported wrong number of bytes when encoding {} bytes instruction with variables",
             num_bytes
         );
         assert_eq!(
-            variant, instr,
+            correct, buf,
             "Encoding {} byte instruction with variables incorrectly",
             num_bytes
         );
     }
     {
-        let mut buf = [0xff; 8];
+        let mut buf = [0x00; 5];
+        let correct = [0x4a, 0xbc, 0xde, 0xf1, 0x23];
         let variant = Vars::Five {
-            v: 0x1,
-            w: 0x23,
-            x: 0x45,
-            y: 0x67,
-            z: 0x89,
+            v: 0x0a,
+            w: 0xbc,
+            x: 0xde,
+            y: 0xf1,
+            z: 0x23,
         };
-        buf[0] = 0x41;
-        buf[1] = 0x23;
-        buf[2] = 0x45;
-        buf[3] = 0x67;
-        buf[4] = 0x89;
-        let num_bytes = 5;
-        for idx in num_bytes..8 {
-            buf[idx] = 0;
-        }
-        let (num_bytes, instr) = Vars::decode(&buf).expect("Failed to decode unit instruction");
+        let num_bytes = variant
+            .encode(&mut buf)
+            .expect("Failed to encode 5 byte instruction with variable(s)");
         assert_eq!(
             5, num_bytes,
             "Reported wrong number of bytes when encoding {} bytes instruction with variables",
             num_bytes
         );
         assert_eq!(
-            variant, instr,
+            correct, buf,
             "Encoding {} byte instruction with variables incorrectly",
             num_bytes
         );

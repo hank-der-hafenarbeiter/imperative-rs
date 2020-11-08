@@ -42,6 +42,7 @@ impl Parse for InstructionSet {
 
 impl ToTokens for InstructionSet {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
+        use crate::matcher::MatchArm;
         let ident = &self.ident;
         let generics = &self.generics;
 
@@ -52,14 +53,17 @@ impl ToTokens for InstructionSet {
             .unzip();
 
         let mut decode_blocks = decode_blocks.iter();
-        let decode_fn = if let Some(first_if) = decode_blocks.next() {
+        let instructions: Vec<&Instruction> = self.instructions.iter().collect();
+        let matcher = MatchArm::from_list(&instructions);
+        let decode_fn = if let Some(_first_if) = decode_blocks.next() {
             quote! {
                 fn decode(mem:&[::std::primitive::u8]) -> ::std::result::Result<(::std::primitive::usize, #ident#generics), imperative_rs::DecodeError> {
-                    #first_if
-                    #(else #decode_blocks)*
-                    else {
-                        Err(imperative_rs::DecodeError::UnknownOpcode)
-                    }
+                    #matcher
+                    //#first_if
+                    //#(else #decode_blocks)*
+                    //else {
+                    //    Err(imperative_rs::DecodeError::UnknownOpcode)
+                    //}
                 }
             }
         } else {

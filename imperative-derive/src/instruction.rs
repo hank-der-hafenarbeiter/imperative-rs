@@ -445,7 +445,7 @@ impl Opcode {
         }))
     }
 
-    fn collision_iter<'a>(&'a self) -> Box<dyn Iterator<Item = char> + 'a> {
+    pub(crate) fn collision_iter<'a>(&'a self) -> Box<dyn Iterator<Item = char> + 'a> {
         Box::new(
             self.bytes
                 .iter()
