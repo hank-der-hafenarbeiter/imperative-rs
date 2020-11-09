@@ -8,8 +8,8 @@
 `imperative` tries to make it easier to define instruction sets. Using `imperative` 
 instruction sets are defined by an `enum` and the `InstructionSet` trait, which can
 be automatically derived. The result is an enum which can decode from `&[u8]` or encode
-into `&mut [u8]`. The instructions can be of variable length and can contain multiple
-variables of whatever type, as long as they can be parsed from binary or hexadecimal
+into `&mut [u8]`. The instructions can be of variable length and can contain multiple bool or integer
+variables, as long as they can be parsed from binary or hexadecimal
 integer strings.
 
 Instruction sets created this way can be used to write emulators. When the instruction
