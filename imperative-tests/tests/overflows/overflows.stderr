@@ -1,0 +1,18 @@
+error: Variable x (with symbol: x) has fewer bits (8) than positions in opcode (12). (e.g. u8 with 9 bits in opcode)
+ --> $DIR/overflows.rs:7:7
+  |
+7 |     A{x:u8},
+  |       ^
+
+error[E0599]: no variant or associated item named `decode` found for enum `Instructionset` in the current scope
+  --> $DIR/overflows.rs:20:29
+   |
+5  | enum Instructionset {
+   | ------------------- variant or associated item `decode` not found here
+...
+20 |     let _ = Instructionset::decode(&mem);
+   |                             ^^^^^^ variant or associated item not found in `Instructionset`
+   |
+   = help: items from traits can only be used if the trait is implemented and in scope
+   = note: the following trait defines an item `decode`, perhaps you need to implement it:
+           candidate #1: `InstructionSet`

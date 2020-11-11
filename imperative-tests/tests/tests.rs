@@ -18,9 +18,7 @@ fn compile_tests() {
     t.compile_fail("tests/variable_checks/hex_digit_var.rs");
     t.compile_fail("tests/variable_checks/two_symbol_varname.rs");
 
-    //TODO: Implement way to error or warn on opcodes that could overflow while decodeing (e.g. 9
-    //bits into u8)
-    //t.compile_fail("tests/overflows/overflows.rs");
+    t.compile_fail("tests/overflows/overflows.rs");
     t.compile_fail("tests/invalid_enums/unnamed_fields.rs");
     t.compile_fail("tests/invalid_enums/var_name_longer_one.rs");
 

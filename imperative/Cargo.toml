@@ -1,6 +1,6 @@
 [package]
 name = "imperative-rs"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Kevin Kielholz <kevinkielholz@rwth-aachen.de>"]
 edition = "2018"
 repository = "https://github.com/hank-der-hafenarbeiter/imperative-rs"
@@ -12,5 +12,5 @@ description = "Auto derivable trait to easily define instruction sets"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-imperative-rs-derive = {path = "../imperative-derive", version="0.3.0"}
+imperative-rs-derive = {path = "../imperative-derive", version="0.3.1"}
 

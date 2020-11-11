@@ -249,6 +249,20 @@ impl InstrWithVars {
     }
 
     fn map_variables(fields: FieldsNamed) -> SynResult<HashMap<char, (Ident, Type)>> {
+        //! This functions takes an iterator over the named fields of an enum variant (i.e.
+        //! Enum::Variant{*var0:type0, var1:type1,...*}) which represent the variables of the
+        //! instruction. It tries to construct a hashmap with the
+        //! variable's symbol as key and the identifier and type as value.
+        //! This is the connection between the symbols in the opcode and the variables in the
+        //! instruction. When the variable name isn't modified by an attribute (i.e. `#[variable =
+        //! "x"]`) the identifier is used as the variables symbol.
+        //! For each variable/field this function checks:
+        //! * if a valid `variable` attribute is given
+        //! * if the variable is actually used in the opcode
+        //! * if the variable name is valid (i.e. length 1, not hexdigit)
+        //! * if the variable is of a supported type
+        //! If a check fails for a field, the other checks are omitted. If any check fails for a
+        //! given field the rest of the fields will still be checked.
         let mut res: SynResult<()> = Ok(());
         let mut variables = HashMap::new();
         for f in fields.named.into_iter() {
@@ -334,6 +348,12 @@ impl InstrWithVars {
     }
 
     fn decoder_block(&self) -> TokenStream2 {
+        //! This constructs the last if-clause and decoder when decoding a byte buffer. This code
+        //! is the leaf of the binary tree constructed by the matcher. But the matcher only rules
+        //! out more and more instruction until one is left. This doesn't mean that this last
+        //! instruction is actually correct. This function requests this match condition, the
+        //! length of the instruction in bytes and the decoder for the instructions variables from
+        //! the `Opcode` and puts it all together into a complete decoder for this instruction
         let num_bytes = self.opcode.num_bytes();
         let var_decoders = self.opcode.build_var_decoders(&self.var_map);
         let match_conditions = self.opcode.build_match_conditions();
@@ -348,6 +368,8 @@ impl InstrWithVars {
     }
 
     fn encoder_block(&self) -> TokenStream2 {
+        //! This function constructs a match-arm for the encoding of this variable. This is used in
+        //! the match block of the encoder function
         let ident = &self.ident;
         let encoder = self.opcode.build_encoder(&self.var_map);
         let var_idents: Vec<&Ident> = self.var_map.iter().map(|(_, (ident, _))| ident).collect();
@@ -359,6 +381,9 @@ impl InstrWithVars {
 }
 
 fn hex_to_bin_string(src_str: &str) -> String {
+    //! The user can give opcodes either as hex or binary string. This function converts hex
+    //! strings into binary strings, so there is only one kind internally.
+    //! "0x0f" => "0b00001111"
     let mut res_str = String::with_capacity(4 * src_str.len());
     for c in src_str.chars().skip(2) {
         if let Some(bin_str) = HEX_TO_BIN.get(&c) {
@@ -372,6 +397,20 @@ fn hex_to_bin_string(src_str: &str) -> String {
     res_str
 }
 
+/// This struct models the opcode given by the user. It offers multiple ways to iterate over
+/// the opcode:
+/// * `get_position_map_of(..)` returns an iterator over the bit and byte positions where the
+/// supplied variable symbol appears and enumerates the positions. "0b0x0x"-> (0, (0, 8)), (1,
+/// (0, 6))
+/// * `mask_strings(..)` returns an iterator over a strings. Each of which is a integer literal
+/// where all constant bits of the opcode are 1 and all variable bits are zero. `mem_byte & mask |
+/// code` is true for all bytes exactly when this opcode is hit.
+/// * `code_strings(..)` same as `mask_strings(..)` but returns codes: For each byte gives an int
+/// literal that is '1' when the opcode is constant and '1' in the corresponding bit position.
+/// * `collision_iter(..)` returns an iterator over strings for each byte. Each string contains a
+/// '*' when the corresponding bit can be either '0' or '1' (i.e. containing a variable). If the
+/// opcode is constantly '0' or '1' in this bit the string contains '0' or '1' in this position.
+/// Additionally this struct produces encoder and decoder for the variables encoded in the opcode.
 pub(crate) struct Opcode {
     bytes: Vec<[char; 8]>,
     span: Span,
@@ -379,6 +418,8 @@ pub(crate) struct Opcode {
 
 impl Opcode {
     fn from_attrs(ident: &Ident, attrs: Vec<Attribute>) -> SynResult<Opcode> {
+        //! Constructs an ´Opcode´ from an `Ident` and a `Vec<Attribute>`. Fails if no ´#[opcode =
+        //! ".."]´ is defined.
         for attribute in attrs {
             if attribute.path.is_ident("opcode") {
                 let tokens: TokenStream = attribute.tokens.into();
@@ -389,6 +430,7 @@ impl Opcode {
     }
 
     fn num_bytes(&self) -> usize {
+        //! length of this opcode in bytes
         self.bytes.len()
     }
 
@@ -403,6 +445,8 @@ impl Opcode {
                 ),
             > + 'a,
     > {
+        //! For the given variable symbol returns the position where it occures (in (byte_idx,
+        //! bit_idx) and how many bits it needs to be left shifted for it's target position.
         Box::new(
             self.bytes
                 .iter()
@@ -422,6 +466,9 @@ impl Opcode {
     }
 
     fn mask_strings<'a>(&'a self) -> Box<dyn Iterator<Item = String> + 'a> {
+        //! Returns an iterator over the masks strings for each byte. Mask strings are used to
+        //! identify this opcode: `mem[byte_idx] & mask[idx] == code[idx]` is true when and only
+        //! when this opcode is hit
         Box::new(self.bytes.iter().map(|byte| {
             let mut mask = "".to_string();
             for c in byte {
@@ -436,6 +483,8 @@ impl Opcode {
     }
 
     fn code_strings<'a>(&'a self) -> Box<dyn Iterator<Item = String> + 'a> {
+        //! Returns an iterator over the code strings for each byte. For further explainations see
+        //! `Opcode::mask_strings(..)` above.
         Box::new(self.bytes.iter().map(|byte| {
             let mut code = "".to_string();
             for c in byte {
@@ -450,6 +499,8 @@ impl Opcode {
     }
 
     pub(crate) fn collision_iter<'a>(&'a self) -> Box<dyn Iterator<Item = char> + 'a> {
+        //! Returns an iterator over the bits of this opcode that is used by the `CollisionGuard`
+        //! to check if this opcode can be distinguished from all other opcodes found so far.
         Box::new(
             self.bytes
                 .iter()
@@ -459,6 +510,13 @@ impl Opcode {
     }
 
     fn build_var_decoders(&self, variables: &HashMap<char, (Ident, Type)>) -> TokenStream2 {
+        //! This function takes a variable map from the corresponding instruction and for each
+        //! variable constructs a block that reads the corresponding bits in the memory, shifts
+        //! them in the right position and bitwise or's them all together.
+        //! This function should always return a valid (in terms of parseability) `TokenStream2`
+        //! but if it an unsupported type should turn up here (which would be a bug in
+        //! `Instruction::parse()` this function will cause a compile error pointing at the
+        //! violating variable
         let mut var_decoders = vec![];
         for (c, (ident, ty)) in variables.iter() {
             let mut masks = vec![];
@@ -524,6 +582,25 @@ impl Opcode {
     }
 
     fn build_encoder(&self, variables: &HashMap<char, (Ident, Type)>) -> TokenStream2 {
+        //! This function takes the variable map from the corresponding `Instruction` and
+        //! constructs a decoder from this opcode to each variable and joins them to a variable
+        //! decoder block that is used in the encoder function.
+        //! ```ignore
+        //! //This is just a mock up of the encode function
+        //! fn encode(&self, mem:&[u8] -> Result<u8, Imperative_rs::EncodeError> {
+        //!     match *self {
+        //!
+        //!         Self::Instr1{ var_bool} => {
+        //!             mem[0] = if var_bool { 1 } else {0}; //This line is constructed by this
+        //!                                                  //function. More variables means more
+        //!                                                  //lines. Integers are a bit trickier
+        //!                                                  //than this bool.
+        //!         }
+        //!
+        //!     }
+        //! }
+        //!
+        //! ```
         let code_bytes: Vec<LitInt> = self
             .code_strings()
             .map(|s| LitInt::new(&format!("0b{}", s), self.span()))
@@ -589,6 +666,8 @@ impl Opcode {
     }
 
     pub(crate) fn build_match_conditions(&self) -> TokenStream2 {
+        //! Puts together mask and code strings to produce an expression that evaluates to `true`
+        //! when and only when the memory contains this opcode
         let num_bytes = self.bytes.len();
         let mut tokens = quote! { mem.len() >= #num_bytes };
         for (idx, (code_str, mask_str)) in self.code_strings().zip(self.mask_strings()).enumerate()
@@ -639,6 +718,8 @@ impl Parse for Opcode {
     }
 }
 
+/// This type implements collision detection between opcodes. With the new matcher this type is
+/// almost obsolete and might be refactored soon
 pub(crate) struct CollisionGuard<'a>(Vec<&'a Opcode>);
 
 impl<'a> CollisionGuard<'a> {

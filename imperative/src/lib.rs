@@ -55,7 +55,7 @@ pub enum DecodeError {
     Overflow,
 }
 
-/// This Type is returned by `fn InstructionSet::encode(...) -> {...} when the instruction could not
+/// This Type is returned by `fn InstructionSet::encode(...) -> {...}` when the instruction could not
 /// be encoded.
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum EncodeError {
