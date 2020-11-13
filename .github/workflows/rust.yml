@@ -18,16 +18,16 @@ jobs:
     - name: Build
       run: cargo build --verbose --manifest-path=./imperative-derive/Cargo.toml
     - name: Run tests
-      run: cargo test --verbose --manifest-path=./imperative-tests/Cargo.toml
+      run: cargo test --verbose 
   windows_build:
     name: Windows build & test
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
     - name: Build
-      run: cargo build --verbose --manifest-path=./imperative-derive/Cargo.toml
+      run: cargo build --verbose --manifest-path=./imperative-derive/Cargo.toml 
     - name: Run tests
-      run: cargo test --verbose --manifest-path=./imperative-tests/Cargo.toml
+      run: cargo test --verbose 
   mac_build:
     name: Mac build & test
     runs-on: macos-latest
@@ -36,4 +36,4 @@ jobs:
     - name: Build
       run: cargo build --verbose --manifest-path=./imperative-derive/Cargo.toml
     - name: Run tests
-      run: cargo test --verbose --manifest-path=./imperative-tests/Cargo.toml
+      run: cargo test --verbose 
