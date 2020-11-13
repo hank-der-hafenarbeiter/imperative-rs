@@ -202,7 +202,7 @@ impl InstrWithVars {
             match variables.get_mut(bit) {
                 Some(entry) => entry.2 += 1,
                 None => {
-                    if *bit != '0' && *bit != '1' {
+                    if *bit != '0' && *bit != '1' && *bit != '*' {
                         let err = Error::new(self.opcode.span,
                                 &format!("Opcode contains {} which is neither a valid digit nor a variable name.", bit));
                         if let Err(ref mut total_error) = res {

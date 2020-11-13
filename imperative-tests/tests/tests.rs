@@ -12,6 +12,7 @@ fn compile_tests() {
     t.compile_fail("tests/collisions/variable_prefix.rs");
     t.compile_fail("tests/collisions/variable_suffix.rs");
     t.compile_fail("tests/collisions/mixed_bin_hex.rs");
+    t.compile_fail("tests/collisions/star_opcodes.rs");
 
     t.compile_fail("tests/variable_checks/missing_in_opcode.rs");
     t.compile_fail("tests/variable_checks/missing_field.rs");

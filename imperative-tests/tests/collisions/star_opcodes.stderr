@@ -1,0 +1,11 @@
+error: Opcode collides with other opdcode
+ --> $DIR/star_opcodes.rs:7:16
+  |
+7 |     #[opcode = "0x0*"]
+  |                ^^^^^^
+
+error: Collides with this opcode
+ --> $DIR/star_opcodes.rs:5:16
+  |
+5 |     #[opcode = "0x00"]
+  |                ^^^^^^
